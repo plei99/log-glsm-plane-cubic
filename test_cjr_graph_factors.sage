@@ -17,6 +17,13 @@ def run_tests():
     )
     assert factors.nonspecial_edge_pair(2) == P2Class.one(rings)
     assert factors.zero_marked() == factors.w()
+    assert factors.zero_marked(2, 0) == factors.w()
+    assert factors.zero_marked(2, 1).coefficients == (
+        -t^2, QQ(9) * t / 2, -QQ(9) / 2
+    )
+    assert factors.zero_marked(2, 2).coefficients == (
+        t^3, -6 * t^2, QQ(45) * t / 4
+    )
     assert factors.zero_nodal(2, 2) == factors.w()
     assert factors.stable_flag_descendant(2, 0).coefficients == (
         2/t, 6/t^2, 18/t^3

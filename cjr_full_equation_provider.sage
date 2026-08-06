@@ -84,11 +84,16 @@ class PlaneCubicFullEquationProvider(SageObject):
         )
 
     def candidate_relations(self, genus, ambient_degree, max_markings=4,
-                            t_powers=(0,), require_complete=False):
+                            t_powers=(0,), require_complete=False,
+                            include_unit_relatives=False):
         factory = ProbeFactory(self.rings.base_field)
-        probes = factory.stationary_candidates(
+        stationary = factory.stationary_candidates(
             genus, ambient_degree, max_markings=max_markings
         )
+        probes = list(stationary)
+        if include_unit_relatives:
+            for probe in stationary:
+                probes.extend(factory.unit_relatives(probe))
         relations = []
         for probe in probes:
             for t_power in t_powers:
@@ -116,6 +121,75 @@ class PlaneCubicFullEquationProvider(SageObject):
             ],
             "compilation": relation.compilation.report(),
         }
+
+
+def _linear_vertex_coefficient(relation, target):
+    """Collect the coefficient of the one-factor monomial ``target``."""
+    return relation.coefficient_field(sum(
+        coefficient
+        for coefficient, factors in relation.terms
+        if factors == (target,)
+    ))
+
+
+def genus_two_profile_split_rank_witness(provider=None):
+    r"""Compile an exact rank witness separating genus-two contact sectors.
+
+    The string and dilaton relatives of ``<tau_2(pt)>_2`` give independent
+    rows on a contact-resolved ``(-3,-1)``/``(-2,-2)`` pair.  This is one
+    block in the descending-Laurent reconstruction that ultimately separates
+    the primitive ``(-3)`` and ``(-2,-2)`` contributions.
+
+    This calculation compiles two 28-graph probes and can take several
+    minutes.  It returns the provider as well as the exact relations so the
+    caller can continue constructing the full dependency closure.
+    """
+    provider = provider or PlaneCubicFullEquationProvider(
+        laurent_precision=8
+    )
+    factory = ProbeFactory(provider.rings.base_field)
+    one_point = ProbeSpec.stationary(2, 0, (2,))
+    string_probe, dilaton_probe = factory.unit_relatives(one_point)
+    relations = (
+        provider.relation(string_probe, t_power=0),
+        provider.relation(dilaton_probe, t_power=0),
+    )
+    targets = (
+        EffectiveVertex(
+            2, 0, (-3, -1), psi_min=0, insertions=(0, 2)
+        ),
+        EffectiveVertex(
+            2, 0, (-2, -2), psi_min=0, insertions=(1, 1)
+        ),
+    )
+    rows = tuple(
+        tuple(_linear_vertex_coefficient(relation, target)
+              for target in targets)
+        for relation in relations
+    )
+    matrix = Matrix(provider.rings.base_field, rows)
+    return {
+        "provider": provider,
+        "probes": (string_probe, dilaton_probe),
+        "relations": relations,
+        "targets": targets,
+        "matrix": matrix,
+        "determinant": matrix.det(),
+        "full_rank": matrix.rank() == len(targets),
+    }
+
+
+def genus_two_profile_split_report(provider=None):
+    """Return the rank witness in a JSON-serializable form."""
+    witness = genus_two_profile_split_rank_witness(provider)
+    return {
+        "targets": [target.to_record() for target in witness["targets"]],
+        "probes": [str(probe) for probe in witness["probes"]],
+        "rows": [[str(value) for value in row]
+                 for row in witness["matrix"].rows()],
+        "determinant": str(witness["determinant"]),
+        "full_rank": bool(witness["full_rank"]),
+    }
 
 
 def genus_two_resummed_end_to_end(max_intrinsic_degree=8):
@@ -177,7 +251,23 @@ def _main():
     parser.add_argument("--max-degree", type=int, default=8,
                         help="maximum intrinsic elliptic-curve degree")
     parser.add_argument("--json", action="store_true")
+    parser.add_argument(
+        "--profile-split-rank", action="store_true",
+        help="compile the slower string/dilaton contact-splitting rank witness",
+    )
     arguments = parser.parse_args()
+    if arguments.profile_split_rank:
+        report = genus_two_profile_split_report()
+        if arguments.json:
+            print(json.dumps(report, indent=2, sort_keys=True))
+            return
+        print("Genus-two contact-profile rank witness")
+        print("matrix:")
+        for row in report["rows"]:
+            print("  ", row)
+        print("determinant =", report["determinant"])
+        print("full rank =", report["full_rank"])
+        return
     report = genus_two_end_to_end_report(arguments.max_degree)
     if arguments.json:
         print(json.dumps(report, indent=2, sort_keys=True))

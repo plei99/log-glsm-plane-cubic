@@ -13,8 +13,12 @@ needed. Run commands from the repository root:
 
 ```bash
 sage test_o3_fixed_locus_graphs.sage
+sage test_log_glsm_infinity_orchestrator.sage
 sage cjr_full_equation_provider.sage --max-degree 8
 ```
+
+For a step-by-step guide to aggregate and contact-resolved infinity vertices,
+see [Computing infinity vertices](docs/COMPUTING_INFINITY_VERTICES.md).
 
 `elliptic_cubic_gw.py` computes the connected, unmarked, positive-degree
 genus-one Gromov-Witten invariants of a smooth cubic
@@ -228,8 +232,11 @@ sage log_glsm_infinity_vertices.sage --max-degree 8 --json
 The balance equation also enumerates the allowed degree-zero profiles. The
 basic genus-one profile is `(-1)`. At genus two, the primitive profiles begin
 with `(-3)` and `(-2,-2)` (with possible additional `-1` contacts). The
-one-point equation determines their aggregate primitive contribution
-$b_4$; it does not separate the two punctured-vertex integrals individually.
+one-point resummed equation determines their aggregate primitive contribution
+$b_4$. The full R-equivariant compiler provides independent rows that
+separate them by combining different Laurent coefficients with stationary,
+string, and dilaton probes; see
+[`docs/COMPUTING_INFINITY_VERTICES.md`](docs/COMPUTING_INFINITY_VERTICES.md).
 
 ### Dynamic programming for general infinity vertices
 
@@ -276,10 +283,21 @@ print(demo["values"])
 ```
 
 The full O(3)-twisted descendant classes and gluing pairings are now attached
-to the enumerated graphs. The remaining reconstruction problem is to select
-enough known probes to make each contact-resolved diagonal block nonsingular.
-Infinite computing power addresses fixed-graph growth, but not a zero or
-rank-deficient probe matrix.
+to the enumerated graphs. `log_glsm_infinity_orchestrator.sage` constructs a
+finite dependency closure, expands stationary/string/dilaton probe families,
+selects exact full-rank blocks, back-substitutes solved values, and
+checkpoints the extracted relations. A compiled string/dilaton block gives
+an exact determinant-9 witness separating the first genus-two contact
+sectors. Infinite computing power addresses fixed-graph growth, but not a
+genuinely rank-deficient probe matrix; blocked runs report the exact kernel.
+
+For example, the contact-resolved genus-one base vertex is computed by
+
+```bash
+sage log_glsm_infinity_orchestrator.sage \
+  --genus 1 --contacts=-1 --insertions 1 \
+  --max-markings 1 --t-powers 0 --no-unit-relatives
+```
 
 A staged implementation plan, including component interfaces and completion
 criteria, is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
@@ -305,7 +323,10 @@ modules:
 - `cjr_probe_factory.sage`: exact diagonal matrices, pivot selection, and
   kernel reporting;
 - `cjr_full_equation_provider.sage`: coefficient extraction, field-valued DP,
-  reports, and the genus-two end-to-end command.
+  reports, contact-profile rank witnesses, and the genus-two end-to-end
+  command;
+- `log_glsm_infinity_orchestrator.sage`: finite dependency closure, staged
+  probe expansion, exact block solving, frontier reports, and checkpoints.
 
 Run the aggregate genus-two computation with
 

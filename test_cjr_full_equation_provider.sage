@@ -25,9 +25,36 @@ def run_tests():
     assert len(selection.relations) == 2
     assert selection.kernel_basis() == tuple()
 
+    # An unresolved term not containing a block target still contributes to
+    # the right-hand side and must keep the row from being selected.
+    unresolved = EffectiveVertex(1, 0, (-1,), label="unresolved")
+    unsafe = CompiledLocalizationRelation(
+        probe, 0, QQ, 1,
+        terms=((1, (x,)), (1, (unresolved,))),
+    )
+    unsafe_selection = factory.select_relations((x,), (unsafe,))
+    assert not unsafe_selection.is_full_rank
+    assert "unresolved lower factors" in unsafe_selection.rejected[0][1]
+
     candidates = factory.stationary_candidates(2, 0, 3)
     assert all(candidate.is_dimension_zero() for candidate in candidates)
     assert {candidate.marking_count for candidate in candidates} == {1, 2, 3}
+
+    one_point = ProbeSpec.stationary(2, 0, (2,))
+    string_relative, dilaton_relative = factory.unit_relatives(one_point)
+    assert string_relative.is_dimension_zero()
+    assert dilaton_relative.is_dimension_zero()
+    assert tuple((item.kind, item.psi_power)
+                 for item in string_relative.insertions) == (
+        ("unit", 0), ("point", 3)
+    )
+    assert tuple((item.kind, item.psi_power)
+                 for item in dilaton_relative.insertions) == (
+        ("unit", 1), ("point", 2)
+    )
+    known_backend = EllipticProbeValueBackend()
+    assert known_backend.value(string_relative) == QQ(7) / 5760
+    assert known_backend.value(dilaton_relative) == QQ(7) / 1920
 
     provider = PlaneCubicFullEquationProvider(laurent_precision=12)
     genus_one = ProbeSpec.stationary(1, 0, (0,))

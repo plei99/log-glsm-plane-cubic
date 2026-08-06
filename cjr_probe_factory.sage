@@ -8,7 +8,8 @@ class CompiledLocalizationRelation(SageObject):
     r"""A target-independent extracted relation ``known=twisted+terms``."""
 
     def __init__(self, probe, t_power, coefficient_field, known_gw,
-                 twisted_zero_level=0, terms=(), compilation=None):
+                 twisted_zero_level=0, terms=(), compilation=None,
+                 is_complete=None):
         self.probe = probe
         self.t_power = ZZ(t_power)
         self.coefficient_field = coefficient_field
@@ -19,9 +20,14 @@ class CompiledLocalizationRelation(SageObject):
             for coefficient, factors in terms
         )
         self.compilation = compilation
+        self._is_complete_override = (
+            None if is_complete is None else bool(is_complete)
+        )
 
     @property
     def is_complete(self):
+        if self._is_complete_override is not None:
+            return self._is_complete_override
         return self.compilation is None or self.compilation.is_complete
 
     def equation_for(self, target):
@@ -32,6 +38,45 @@ class CompiledLocalizationRelation(SageObject):
             terms=self.terms,
             probe_label="%s [t^%s]" % (self.probe, self.t_power),
             coefficient_field=self.coefficient_field,
+        )
+
+    def to_record(self):
+        """Serialize an extracted relation without its heavy graph objects."""
+        return {
+            "probe": self.probe.to_record(),
+            "t_power": int(self.t_power),
+            "known_gw": str(self.known_gw),
+            "twisted_zero_level": str(self.twisted_zero_level),
+            "is_complete": self.is_complete,
+            "terms": [
+                {
+                    "coefficient": str(coefficient),
+                    "factors": [factor.to_record() for factor in factors],
+                }
+                for coefficient, factors in self.terms
+            ],
+        }
+
+    @classmethod
+    def from_record(cls, record, coefficient_field=QQ):
+        return cls(
+            ProbeSpec.from_record(record["probe"]),
+            record["t_power"],
+            coefficient_field,
+            known_gw=coefficient_field(record["known_gw"]),
+            twisted_zero_level=coefficient_field(
+                record.get("twisted_zero_level", "0")
+            ),
+            terms=tuple(
+                (
+                    coefficient_field(term["coefficient"]),
+                    tuple(EffectiveVertex.from_record(factor)
+                          for factor in term.get("factors", ())),
+                )
+                for term in record.get("terms", ())
+            ),
+            compilation=None,
+            is_complete=record.get("is_complete", True),
         )
 
 
@@ -88,6 +133,41 @@ class ProbeFactory(SageObject):
                 ))
         return tuple(candidates)
 
+    def unit_relatives(self, probe):
+        r"""Return dimension-zero string and dilaton relatives of a probe.
+
+        For a stationary probe, adding ``tau_1(1)`` gives its dilaton
+        relative.  Adding ``tau_0(1)`` and raising one point-descendant by
+        one gives a string relative.  Their known elliptic-curve values are
+        computed by :class:`EllipticProbeValueBackend`, while their CJR graph
+        rows need not be dependent term by term.  They are therefore useful
+        for separating contact-profile blocks.
+        """
+        if not isinstance(probe, ProbeSpec):
+            raise TypeError("unit relatives require a ProbeSpec")
+        if any(insertion.kind != "point" for insertion in probe.insertions):
+            raise ValueError("unit relatives are generated from stationary probes")
+
+        relatives = []
+        for index, insertion in enumerate(probe.insertions):
+            raised = EllipticInsertion("point", insertion.psi_power + 1)
+            insertions = (
+                (EllipticInsertion("unit", 0),)
+                + probe.insertions[:index]
+                + (raised,)
+                + probe.insertions[index + 1:]
+            )
+            relatives.append(ProbeSpec(
+                probe.genus, probe.ambient_degree, insertions,
+                connected=probe.connected, label="string relative",
+            ))
+        relatives.append(ProbeSpec(
+            probe.genus, probe.ambient_degree,
+            (EllipticInsertion("unit", 1),) + probe.insertions,
+            connected=probe.connected, label="dilaton relative",
+        ))
+        return tuple(relatives)
+
     def diagonal_row(self, relation, targets, lower_values=None):
         targets = tuple(targets)
         target_set = set(targets)
@@ -100,8 +180,6 @@ class ProbeFactory(SageObject):
             if len(block_factors) > 1:
                 nonlinear = True
                 continue
-            if not block_factors:
-                continue
             multiplier = coefficient
             skipped = False
             for factor in factors:
@@ -113,7 +191,7 @@ class ProbeFactory(SageObject):
                     multiplier = None
                     break
                 multiplier *= relation.coefficient_field(lower_values[factor])
-            if multiplier is not None:
+            if multiplier is not None and block_factors:
                 row[targets.index(block_factors[0])] += multiplier
         return tuple(row), nonlinear, tuple(sorted(
             unresolved, key=lambda item: item.order_key()
@@ -156,4 +234,3 @@ class ProbeFactory(SageObject):
             targets, selected_relations, selected_rows,
             self.coefficient_field, rejected=rejected,
         )
-

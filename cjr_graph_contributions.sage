@@ -198,11 +198,11 @@ class PlaneCubicGraphContributionCompiler(SageObject):
     def _marked_zero_options(self, probe, graph, zero):
         edge_index, _, contact = self._incident_edges(graph, zero)[0]
         marking = graph.markings_at_zero_vertex(zero)[0]
-        ordinary_class = self._class_for_insertion(
-            self._ordinary_insertion(probe, marking)
-        )
+        ordinary = self._ordinary_insertion(probe, marking)
+        ordinary_class = self._class_for_insertion(ordinary)
         local_class = self.factors.edge(contact) \
-            * self.factors.zero_marked() * ordinary_class
+            * self.factors.zero_marked(contact, ordinary.psi_power) \
+            * ordinary_class
         return tuple(
             (coefficient, {edge_index: h_power})
             for h_power, coefficient in enumerate(local_class.coefficients)
