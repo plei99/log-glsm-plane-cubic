@@ -8,6 +8,7 @@ def run_tests():
     assert point.total_codimension == 3
     assert point.ambient_class() == (QQ(1) / 3, 1)
     assert EllipticInsertion("unit", 0).ambient_class() == (1, 0)
+    assert EllipticInsertion.from_record(point.to_record()) == point
 
     probe = ProbeSpec.stationary(2, 9, (2,), label="tau2")
     assert probe.intrinsic_degree == 3
@@ -15,6 +16,7 @@ def run_tests():
     assert probe.insertion_codimension == 3
     assert probe.is_dimension_zero()
     assert probe.stationary_descendants() == (2,)
+    assert ProbeSpec.from_record(probe.to_record()) == probe
 
     assert PlaneCubicDimension.plane_virtual_dimension(2, 4, 3) == 16
     assert PlaneCubicDimension.o3_euler_virtual_rank(2, 4) == 11

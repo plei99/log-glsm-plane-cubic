@@ -34,7 +34,7 @@ class EffectiveVertex:
         self.ambient_degree = ZZ(ambient_degree)
         self.contacts = tuple(sorted(ZZ(c) for c in contacts))
         self.psi_min = ZZ(psi_min)
-        self.insertions = tuple(insertions)
+        self.insertions = tuple(ZZ(insertion) for insertion in insertions)
         self.label = str(label)
 
         if self.genus < 0:
@@ -79,7 +79,7 @@ class EffectiveVertex:
             "ambient_degree": int(self.ambient_degree),
             "contacts": [int(value) for value in self.contacts],
             "psi_min": int(self.psi_min),
-            "insertions": list(self.insertions),
+            "insertions": [int(value) for value in self.insertions],
             "label": self.label,
         }
 
@@ -289,7 +289,7 @@ class InfinityVertexDP:
         )
         return {
             "format": "log-glsm-infinity-dp",
-            "version": 1,
+            "version": int(1),
             "coefficient_field": str(self.coefficient_field),
             "values": [
                 {"vertex": vertex.to_record(), "value": str(value)}

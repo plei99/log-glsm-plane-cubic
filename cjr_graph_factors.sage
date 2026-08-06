@@ -135,9 +135,37 @@ class PlaneCubicGraphFactors(SageObject):
             QQ(9) / contact,
         ))
 
-    def zero_marked(self):
-        """The unstable marked factor ``t-H``."""
-        return self.w()
+    def zero_marked(self, contact=None, psi_power=0):
+        r"""Return the unstable marked-zero contribution.
+
+        CJR III, equation (8.21), contributes the ordinary insertion times
+
+        .. math::
+
+            (t-H_\infty)\left(H_\infty/c-t\right)^b
+
+        for a marking carrying ``psi^b`` on an edge of contact ``c``.  Here
+        ``H_infinity=3H`` for the plane cubic.  The default arguments retain
+        the primary factor ``t-3H`` used by older callers.
+        """
+        psi_power = ZZ(psi_power)
+        if psi_power < 0:
+            raise ValueError("a marked descendant power must be nonnegative")
+        if contact is None:
+            if psi_power:
+                raise ValueError("a positive marked descendant needs a contact")
+            return self.w()
+
+        contact = ZZ(contact)
+        if contact <= 0:
+            raise ValueError("a marked edge contact must be positive")
+        descendant_weight = P2Class(
+            self.rings, (-self.t, QQ(3) / contact, 0)
+        )
+        answer = self.w()
+        for _ in range(psi_power):
+            answer *= descendant_weight
+        return answer
 
     def zero_nodal(self, contact_left, contact_right):
         r"""The unstable nodal factor after identifying its evaluations.

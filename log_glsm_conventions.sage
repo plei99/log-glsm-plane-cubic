@@ -50,6 +50,17 @@ class EllipticInsertion(SageObject):
     def signature(self):
         return self.kind, self.psi_power
 
+    def to_record(self):
+        """Return a JSON-friendly exact checkpoint record."""
+        return {
+            "kind": self.kind,
+            "psi_power": int(self.psi_power),
+        }
+
+    @classmethod
+    def from_record(cls, record):
+        return cls(record["kind"], record.get("psi_power", 0))
+
     def __hash__(self):
         return hash(self.signature())
 
@@ -126,6 +137,27 @@ class ProbeSpec(SageObject):
             self.genus, self.ambient_degree,
             tuple(item.signature() for item in self.insertions),
             self.connected, self.label,
+        )
+
+    def to_record(self):
+        """Return a JSON-friendly exact checkpoint record."""
+        return {
+            "genus": int(self.genus),
+            "ambient_degree": int(self.ambient_degree),
+            "insertions": [item.to_record() for item in self.insertions],
+            "connected": bool(self.connected),
+            "label": self.label,
+        }
+
+    @classmethod
+    def from_record(cls, record):
+        return cls(
+            record["genus"],
+            record["ambient_degree"],
+            tuple(EllipticInsertion.from_record(item)
+                  for item in record.get("insertions", ())),
+            connected=record.get("connected", True),
+            label=record.get("label", ""),
         )
 
     def __hash__(self):
@@ -254,4 +286,3 @@ class PlaneCubicDimension(SageObject):
 def plane_cubic_reduced_sign(genus, ambient_degree):
     """The sign ``(-1)^(1-g+3d)`` in the reduced-class comparison."""
     return ZZ(-1) ** (1 - ZZ(genus) + 3 * ZZ(ambient_degree))
-
