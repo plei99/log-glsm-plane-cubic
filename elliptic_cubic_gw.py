@@ -4,8 +4,9 @@
 The target is a smooth cubic E in P^2.  The implementation has two layers:
 
 * :class:`O3TwistedPlane` evaluates the fixed-point restrictions of the
-  C_R^*-equivariant O(3)-twisted I-function.  ``fiber_weight`` is the
-  character of the R-torus on the fibers of O(3).
+  conventional Euler-twisted O(3) I-function.  ``fiber_weight`` is the
+  character of the R-torus on the fibers of O(3).  This is not the dual
+  Euler convention ``t-3H`` used by the individual CJR stable-zero backend.
 * :class:`EllipticCubicLocalization` sums the genus-one localization series
   in its hypergeometric form and changes from the B-model coordinate q to
   the flat coordinate Q.
@@ -385,7 +386,7 @@ class EllipticCurveStationaryTheory:
 
 @dataclass(frozen=True)
 class O3TwistedPlane:
-    r"""Fixed-point oracle for the C_R^*-equivariant O(3)-twisted P^2 theory.
+    r"""Fixed-point oracle for the Euler-twisted O(3) theory of P^2.
 
     ``base_weights`` are the restrictions lambda_i of H at the three fixed
     points.  ``fiber_weight`` is the R-torus character s.  With loop
@@ -396,6 +397,9 @@ class O3TwistedPlane:
         prod_{j=0}^2 prod_{m=1}^d (lambda_i-lambda_j+m z)
 
     Supplying rational weights evaluates this rational function exactly.
+    CJR zero vertices instead contain ``e((R pi_*f^*O(3))^vee)`` and use
+    weights ``t-3H``; callers needing those invariants should use
+    ``FullTwistedZeroVertexBackend`` in the Sage implementation.
     """
 
     base_weights: tuple[Fraction, Fraction, Fraction]

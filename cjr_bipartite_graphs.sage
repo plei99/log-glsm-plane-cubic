@@ -423,6 +423,8 @@ class PlaneCubicGraphEnumerator(SageObject):
         if self.genus < 0 or self.markings < 0 or self.degree < 0:
             raise ValueError("genus, markings, and degree must be nonnegative")
         self._cache = None
+        self._row_cache = {}
+        self._degree_cache = {}
 
     def mixed_vertex_bound(self):
         if self.genus == 0:
@@ -430,6 +432,13 @@ class PlaneCubicGraphEnumerator(SageObject):
         return 4 * self.genus + 2 * self.markings + self.degree - 1
 
     def _one_level_graphs(self):
+        # The CJR vertex classification is made inside globally X-stable
+        # data.  Reject the exceptional globally unstable degree-zero types
+        # before applying it; otherwise (g,n,d)=(1,0,0) produces spurious
+        # zero-only and infinity-only graphs even though the connected
+        # stable-map probe itself does not exist.
+        if self.degree == 0 and 2 * self.genus - 2 + self.markings <= 0:
+            return tuple()
         candidates = []
         zero_only = BipartiteLocalizationGraph(
             (self.genus,), (self.degree,), (), (),
@@ -446,16 +455,74 @@ class PlaneCubicGraphEnumerator(SageObject):
                 candidates.append(infinity_only)
         return candidates
 
+    def _rows_with_sum(self, infinity_count, row_sum):
+        """Cache the incidence rows of one zero vertex with a fixed valence."""
+        key = (infinity_count, row_sum)
+        if key not in self._row_cache:
+            self._row_cache[key] = tuple(sorted(
+                _weak_compositions(row_sum, infinity_count), reverse=True
+            ))
+        return self._row_cache[key]
+
+    def _canonical_incidence_matrices(self, zero_count, infinity_count,
+                                      edge_count):
+        r"""Yield incidence matrices up to relabeling of the zero vertices.
+
+        Row ``z`` records how many edges join zero vertex ``z`` to each
+        infinity vertex.  Rows are emitted in non-increasing ``(sum, row)``
+        order, so exactly one representative of each orbit under the symmetric
+        group on zero vertices is produced.
+
+        This loses no isomorphism class.  Given any decorated graph, let
+        ``pi`` be a permutation sorting the rows of its incidence matrix.
+        Applying ``pi`` to the genus, degree, and marking decorations as well
+        gives an isomorphic decorated graph whose matrix is canonical, and
+        ``_mixed_graphs`` enumerates every decoration of every emitted matrix.
+
+        Each row sum is positive: a zero vertex with no incident edge would
+        disconnect a mixed-level graph, and disconnected graphs are rejected.
+        """
+        def extend(rows_left, remaining, previous):
+            if rows_left == 0:
+                if remaining == 0:
+                    yield tuple()
+                return
+            # Every remaining row still needs at least one edge.
+            if remaining < rows_left:
+                return
+            largest = remaining - (rows_left - 1)
+            if previous is not None:
+                largest = min(largest, previous[0])
+            for row_sum in range(largest, 0, -1):
+                # Later rows have sum at most row_sum, so this bounds the
+                # whole tail; smaller sums only make it worse.
+                if remaining > row_sum * rows_left:
+                    break
+                for row in self._rows_with_sum(infinity_count, row_sum):
+                    key = (row_sum, row)
+                    if previous is not None and key > previous:
+                        continue
+                    for tail in extend(rows_left - 1, remaining - row_sum,
+                                       key):
+                        yield (row,) + tail
+
+        return extend(zero_count, edge_count, None)
+
     def _endpoint_multigraphs(self, zero_count, infinity_count, edge_count):
-        cell_count = zero_count * infinity_count
-        for multiplicities in _weak_compositions(edge_count, cell_count):
-            pairs = []
-            for flat_index, multiplicity in enumerate(multiplicities):
-                zero = flat_index // infinity_count
-                infinity = flat_index % infinity_count
-                pairs.extend([(zero, infinity)] * multiplicity)
+        for matrix in self._canonical_incidence_matrices(
+                zero_count, infinity_count, edge_count):
+            # An infinity vertex with no incident edge disconnects the graph.
+            if any(not any(row[infinity] for row in matrix)
+                   for infinity in range(infinity_count)):
+                continue
+            pairs = tuple(
+                (zero, infinity)
+                for zero, row in enumerate(matrix)
+                for infinity, multiplicity in enumerate(row)
+                for _ in range(multiplicity)
+            )
             if _connected_bipartite(zero_count, infinity_count, pairs):
-                yield tuple(pairs)
+                yield pairs
 
     def _genus_decorations(self, vertex_count, infinity_count, first_betti):
         # Infinity stability plus balance forces g_infinity >= 1: for g=0,
@@ -470,6 +537,143 @@ class PlaneCubicGraphEnumerator(SageObject):
                 1 + x for x in excess[zero_count:]
             )
             yield zero_genera, infinity_genera
+
+    def _degree_decorations(self, vertex_count):
+        """Cache degree distributions shared by all incidence matrices."""
+        if vertex_count not in self._degree_cache:
+            self._degree_cache[vertex_count] = tuple(
+                _weak_compositions(self.degree, vertex_count)
+            )
+        return self._degree_cache[vertex_count]
+
+    @staticmethod
+    def _canonical_marking_decorations(marking_count, zero_genera,
+                                       zero_degrees, pairs):
+        r"""Assign labeled markings modulo interchangeable zero vertices.
+
+        Zero vertices with the same genus, degree, and incidence row can be
+        permuted while fixing every infinity vertex.  Generating all
+        ``zero_count^marking_count`` assignments and deduplicating only after
+        graph construction is the dominant cost of the four-mark genus-three
+        family.  Within each interchangeable group we use restricted-growth
+        labels: a new vertex may be used only after every earlier vertex in
+        that group has appeared.  This selects exactly one representative of
+        every orbit under that evident product of symmetric groups.
+        """
+        marking_count = Integer(marking_count)
+        zero_count = len(zero_genera)
+        if marking_count < 0:
+            raise ValueError("marking_count must be nonnegative")
+        if marking_count == 0:
+            yield tuple()
+            return
+
+        infinity_count = 1 + max(infinity for _, infinity in pairs)
+        rows = [[0] * infinity_count for _ in range(zero_count)]
+        for zero, infinity in pairs:
+            rows[zero][infinity] += 1
+
+        grouped = defaultdict(list)
+        for zero in range(zero_count):
+            grouped[(
+                zero_genera[zero], zero_degrees[zero], tuple(rows[zero])
+            )].append(zero)
+        groups = tuple(tuple(vertices) for _, vertices in sorted(
+            grouped.items(), key=lambda item: item[1][0]
+        ))
+        vertex_data = {}
+        for group_index, vertices in enumerate(groups):
+            for position, zero in enumerate(vertices):
+                vertex_data[zero] = (group_index, position)
+
+        def extend(marking, assignment, largest_used):
+            if marking == marking_count:
+                yield tuple(assignment)
+                return
+            for zero in range(zero_count):
+                group, position = vertex_data[zero]
+                if position > largest_used[group] + 1:
+                    continue
+                previous = largest_used[group]
+                if position > previous:
+                    largest_used[group] = position
+                assignment.append(zero)
+                for result in extend(
+                        marking + 1, assignment, largest_used):
+                    yield result
+                assignment.pop()
+                largest_used[group] = previous
+
+        for result in extend(
+                0, [], [-1] * len(groups)):
+            yield result
+
+    @staticmethod
+    def _contact_budget_available(pairs, zero_types, infinity_genera,
+                                  infinity_degrees):
+        r"""Necessary condition for any positive contact decoration to exist.
+
+        The contacts at infinity vertex ``v`` sum to
+        ``2g(v)-2+val(v)-3d(v)``.  Every edge contributes at least one, and an
+        edge meeting a *nonspecial* zero vertex contributes at least two,
+        because ``validation_errors`` rejects a nonspecial vertex whose
+        contact equals one.  Testing this before ``_contact_decorations``
+        discards configurations whose contact budget can never balance,
+        instead of building each of their contact assignments first.
+        """
+        for infinity in range(len(infinity_genera)):
+            valence = 0
+            nonspecial = 0
+            for zero, other in pairs:
+                if other != infinity:
+                    continue
+                valence += 1
+                if zero_types[zero] == "nonspecial":
+                    nonspecial += 1
+            required = (2 * infinity_genera[infinity] - 2 + valence
+                        - 3 * infinity_degrees[infinity])
+            if required < valence + nonspecial:
+                return False
+        return True
+
+    @staticmethod
+    def _zero_vertex_types(zero_genera, zero_degrees, pairs,
+                           marking_vertices):
+        r"""Classify all zero vertices without constructing a graph object.
+
+        This is the innermost rejection test in ``_mixed_graphs``.  Calling
+        ``BipartiteLocalizationGraph.zero_vertex_type`` once per vertex used
+        to rebuild the complete edge- and marking-valence arrays on every
+        call.  Computing both arrays once applies the same cases in time
+        linear in the size of the decoration.
+        """
+        zero_count = len(zero_genera)
+        edge_valences = [0] * zero_count
+        marking_valences = [0] * zero_count
+        for zero, _ in pairs:
+            edge_valences[zero] += 1
+        for zero in marking_vertices:
+            marking_valences[zero] += 1
+
+        types = []
+        for zero in range(zero_count):
+            genus = zero_genera[zero]
+            degree = zero_degrees[zero]
+            edge_valence = edge_valences[zero]
+            marking_valence = marking_valences[zero]
+            valence = edge_valence + marking_valence
+            if genus != 0 or degree != 0 or valence > 2:
+                kind = "stable"
+            elif edge_valence == 1 and marking_valence == 0:
+                kind = "nonspecial"
+            elif edge_valence == 1 and marking_valence == 1:
+                kind = "marked"
+            elif edge_valence == 2 and marking_valence == 0:
+                kind = "nodal"
+            else:
+                kind = "invalid"
+            types.append(kind)
+        return tuple(types)
 
     def _contact_decorations(self, pairs, infinity_genera,
                              infinity_degrees):
@@ -515,8 +719,8 @@ class PlaneCubicGraphEnumerator(SageObject):
                         for zero_genera, infinity_genera in \
                                 self._genus_decorations(
                                     vertex_count, infinity_count, first_betti):
-                            for degrees in _weak_compositions(
-                                    self.degree, vertex_count):
+                            for degrees in self._degree_decorations(
+                                    vertex_count):
                                 zero_degrees = degrees[:zero_count]
                                 infinity_degrees = degrees[zero_count:]
                                 if any(2 * genus - 2 - 3 * degree < 0
@@ -524,20 +728,26 @@ class PlaneCubicGraphEnumerator(SageObject):
                                            infinity_genera,
                                            infinity_degrees)):
                                     continue
-                                for marking_vertices in product(
-                                        range(zero_count),
-                                        repeat=self.markings):
+                                for marking_vertices in \
+                                        self._canonical_marking_decorations(
+                                            self.markings,
+                                            zero_genera,
+                                            zero_degrees,
+                                            pairs,
+                                        ):
                                     # Reject forbidden zero unstable types before
                                     # the usually larger contact-order loop.
-                                    provisional = BipartiteLocalizationGraph(
+                                    zero_types = self._zero_vertex_types(
                                         zero_genera, zero_degrees,
-                                        infinity_genera, infinity_degrees,
-                                        marking_vertices,
-                                        tuple((z, i, 1) for z, i in pairs),
+                                        pairs, marking_vertices,
                                     )
-                                    if any(provisional.zero_vertex_type(z)
-                                           == "invalid"
-                                           for z in range(zero_count)):
+                                    if any(kind == "invalid"
+                                           for kind in zero_types):
+                                        continue
+                                    if not self._contact_budget_available(
+                                            pairs, zero_types,
+                                            infinity_genera,
+                                            infinity_degrees):
                                         continue
                                     for contacts in self._contact_decorations(
                                             pairs, infinity_genera,
@@ -557,6 +767,9 @@ class PlaneCubicGraphEnumerator(SageObject):
     def graphs(self):
         """Return all isomorphism classes, sorted by canonical key."""
         if self._cache is not None:
+            return self._cache
+        if self.degree == 0 and 2 * self.genus - 2 + self.markings <= 0:
+            self._cache = tuple()
             return self._cache
         representatives = {}
         for graph in self._one_level_graphs():

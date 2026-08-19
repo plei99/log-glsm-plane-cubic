@@ -2,16 +2,37 @@
 
 ## Implementation status
 
-The software architecture in this roadmap is now implemented. In particular,
+Most of the software architecture in this roadmap is implemented. In particular,
 the repository contains `ProbeSpec`, the shared coefficient ring and dimension
 engine, universal CJR factors, a complete base-torus localization backend for
 `O(3)`-twisted zero vertices, general lambda/psi integration through
 `admcycles`, the per-graph compiler, known elliptic probe values, rank-aware
 probe selection, field-valued DP, and audit reports.
 
+The CJR punctured unit-removal layer is also implemented in
+`cjr_punctured_axioms.sage`: fundamental/unit, string, divisor, and dilaton
+relations for a contact-`-1` marking; genus-zero vanishing; the ample
+genus-one reduction and explicit one-marked base values; and exact residual
+checks in the orchestrator. Disconnected product terms were already encoded
+as graph monomials. A splitting relation is intentionally absent because CJR
+states it as future work rather than an available axiom.
+
 The aggregate genus-two computation is end to end and reproduces every
 requested coefficient of `<pt psi^2>_(2,1,d)`. The contact-resolved compiler
-also keeps `(-3)` and `(-2,-2)` as distinct unknowns.
+also keeps `(-3)` and `(-2,-2)` as distinct unknowns. It does not yet derive
+their individual values from ordinary stationary invariants.
+
+The stabilization-pullback component is implemented. CJR III's log-domain
+cotangent line and the Bloch--Okounkov stable-map cotangent line agree on
+stable zero components. On a marked unstable zero tail the latter moves to
+the corresponding infinity contact; `EffectiveVertex.contact_psi` records its
+power and virtual-dimension pruning includes it. Version-5 orchestration
+checkpoints are invalidated because they used the smaller vertex basis.
+
+The remaining descendant problem is equation closure: the implemented CJR
+unit-removal formulas do not act on arbitrary ordinary cotangent powers at
+retained contacts. Stabilized compact probes now compile exact equations in
+this enlarged basis, but a finite family can still have a genuine rank defect.
 
 The former mathematical gap has been closed by
 `o3_fixed_locus_graphs.sage`. It enumerates the fixed loci of
@@ -19,9 +40,12 @@ The former mathematical gap has been closed by
 and sends all contracted-vertex lambda/psi monomials to the vendored
 `admcycles` 1.4 backend. The algorithm is finite for every fixed `(g,n,d)`
 but grows exponentially; large degrees and high-valence Hodge integrals are
-therefore computational, rather than architectural, limits. A future
-quantum-Riemann--Roch/R-matrix implementation remains valuable as a faster
-independent backend, not as a correctness prerequisite.
+therefore computational, rather than architectural, limits. The
+Givental--Teleman stable-graph engine and positive-degree calibration are now
+implemented. The small twisted quantum product is computed in flat
+coordinates, the degree-zero quantum-Riemann--Roch matrix fixes the Dubrovin
+initial condition, and the S-matrix converts ancestors to descendants.
+Localization remains the default backend while larger workloads are profiled.
 
 ## Target
 
@@ -47,10 +71,12 @@ The first supported scope should remain deliberately precise:
 - finite bounds on genus, ambient degree, descendant degree, and contact
   length.
 
-The combinatorial and cohomological layers are complete in this scope. The
-remaining open-ended work is probe design: finding full-rank families of
-known elliptic invariants for every desired contact-resolved DP block, and
-improving performance at large `(g,n,d)`.
+The combinatorial and cohomological layers are complete in this scope.  For
+the Section 9.3 hypersurface specialization, the remaining mathematical work
+is calibration of any basic effective-invariant directions left by exact
+rank reduction; the remaining engineering work is performance at large
+`(g,n,d)`.  Ordinary contact-descendant relations belong only to the separate
+generic stabilized-descendant experiment and are not inputs to Theorem 10.1.
 
 ```mermaid
 flowchart LR
@@ -85,6 +111,8 @@ The following pieces are already present:
 - `cjr_graph_contributions.sage`: exact graph-to-effective-polynomial
   compilation;
 - `cjr_full_equation_provider.sage`: equation extraction and DP integration.
+- `cjr_punctured_axioms.sage`: CJR contact-`-1` unit-removal equations and
+  low-genus closed inputs.
 
 ## Phase 1: freeze conventions and data contracts
 
@@ -115,9 +143,12 @@ QQ(lambda_0, lambda_1, lambda_2, t)
 ```
 
 and truncated Laurent/power series in the R-weight `t`. No module should
-create an independent symbolic `t`. Specializing the base weights to
-convenient distinct rational values should be supported as a verification
-mode, not as the definition of the answer.
+create an independent symbolic `t`. The production path uses the nonresonant
+auxiliary path `(0,epsilon,epsilon^2)` and takes `epsilon -> 0` after each
+complete fixed-locus sum. A fixed linear ray can make unstable nodal flag
+weights cancel identically. Distinct rational weights remain a diagnostic
+mode, not the definition of the non-equivariant answer; while `t` remains,
+they can retain genuine base-equivariant correction terms.
 
 ### 1.3 normalization ledger
 
@@ -247,12 +278,22 @@ The lighter `HodgeIntegralBackend` and `TwistedZeroVertexBackend` remain
 available for tests that deliberately exercise unsupported-geometry
 diagnostics.
 
-### 4.3 second backend: Givental/quantum-Riemann--Roch
+### 4.3 Givental/quantum-Riemann--Roch backend
 
-After the localization backend is validated, add a semisimple-CohFT backend
-using the twisted `I`-function, canonical coordinates, and the `R`-matrix.
-This should be an optimization and cross-check, not the first source of
-truth.
+`givental_teleman.sage` implements the full unit-preserving stable-graph
+action of a supplied truncated R-matrix. `o3_givental_teleman.sage` computes
+the exact flat small quantum product from genus-zero twisted invariants,
+diagonalizes it q-adically, and solves the canonical flatness recursion. The
+degree-zero diagonal matrix from Mumford GRR/quantum Riemann--Roch supplies the
+otherwise-undetermined integration constants. A separate S-matrix recursion
+converts the reconstructed ancestors into stable-map descendants.
+
+The degree-zero reconstruction is cross-checked against virtual localization
+through genus two. Positive-degree primary and descendant invariants are
+cross-checked in degrees one and two. `HybridTwistedZeroVertexBackend` uses
+the calibrated reconstruction where supported and retains localization as a
+fallback. The remaining work is performance engineering and broader
+coefficient-level regression coverage, not an unresolved R-matrix gauge.
 
 ### 4.4 completed low-degree tests
 
@@ -272,7 +313,8 @@ computing time and memory.
 Create a translator from an enumerated infinity vertex to
 
 ```text
-EffectiveVertex(g, D, contacts, psi_min=k, insertions=alpha)
+EffectiveVertex(g, D, contacts, psi_min=k,
+                insertions=alpha, contact_psi=b)
 ```
 
 The current graph enumerator supplies `(g,D,contacts)`. The contribution
@@ -280,7 +322,8 @@ compiler must add:
 
 - the finite expansion of `1/(-t-psi_min)`;
 - evaluation insertions inherited from incident-edge basis labels;
-- symmetry under equal contacts and equal insertions;
+- ordinary contact cotangent powers inherited from stabilization;
+- symmetry under equal decorated contacts;
 - dimension pruning of impossible `psi_min` powers;
 - positive infinity degrees when allowed by
   `2g-2 >= 3D` (they first matter beyond the genus-two simplification).
@@ -289,7 +332,7 @@ Do not aggregate distinct contact profiles at this layer. Aggregation is
 allowed only as an explicitly labeled resummation, as in the current
 one-point cumulant provider.
 
-**Completion criterion:** a graph contribution is a finite exact sum of
+**Completion criterion: met.** A graph contribution is a finite exact sum of
 monomials in fully indexed `EffectiveVertex` objects.
 
 ## Phase 6: graph contribution compiler
@@ -349,8 +392,47 @@ If resolving a block requires genuinely nonstationary invariants, add them as
 a separate backend rather than silently extrapolating the Bloch--Okounkov
 formula.
 
-**Completion criterion:** every generated probe is either assigned a proven
-known value or rejected before equation construction.
+Bloch--Okounkov values use stabilized stable-map psi. The graph compiler can
+pull those classes through stabilization directly: a descendant on a
+contracted marked zero tail becomes a contact descendant at infinity.
+Constant and nonconstant Laurent coefficients are therefore valid in that
+enlarged diagnostic basis.
+
+**Completion criterion:** every generated probe is either assigned a proven,
+psi-compatible known value or rejected before equation construction. This is
+implemented as a safety property.  Compact zero-sector log descendants are
+now supplied by the separate CJR-I virtual stabilization-boundary comparison.
+
+### Phase 7b: stabilization pullback for descendants - implemented
+
+`st^*(psi_i)` is now handled on every compact-sector fixed locus. On a stable
+zero component it is the usual local cotangent line. On a marked unstable
+zero tail, stabilization contracts the tail and moves the power to the
+adjacent infinity contact. The effective-vertex state space, dimension
+filter, canonical ordering, reports, and checkpoints include these powers,
+and psi-compatible `t^0` stationary equations are restored.
+
+The punctured string/divisor translator deliberately declines vertices with
+contact descendants until an appropriate extension of those relations is
+proved and encoded.
+
+This phase supports the generic experiment in which stabilized stable-map
+descendants are localized graph by graph.  It is not required for the
+hypersurface effective-invariant basis of Section 9.3 and Theorem 10.1.
+
+### Phase 7c: virtual stabilization-boundary comparison - implemented
+
+CJR I, equation (1.10) and Theorem 1.4, compare the numerical compact
+log-GLSM descendant with the stabilized hypersurface descendant after the
+boundary of the stabilization morphism is included.  The
+`StabilizationBoundaryComparison` adapter keeps the two probe conventions
+distinct, obtains the compact number from Bloch--Okounkov, and compiles the
+graph side with the log-domain class of CJR III (8.21).
+
+Consequently `effective_basis_only` now combines these boundary-compared
+stationary rows with primary Chow rows.  Every emitted infinity factor is
+still required to have `contact_psi=()`; the only descendant variable at
+infinity is `psi_min`.
 
 ## Phase 8: automatic probe and block selection
 
@@ -366,9 +448,10 @@ A lexicographic order alone does not guarantee a triangular system. Build a
 7. reports the kernel explicitly if the probes do not separate the desired
    vertices.
 
-Candidate probes should be ordered by cost: stationary point descendants
-first, then string/divisor/dilaton relatives, then additional primary or
-graph-valued relations.
+For Theorem 10.1 reconstruction, candidate probes should be ordered by cost:
+primary effective-basis rows first, then additional ambient degrees and
+graph-valued relations.  Stationary point descendants and their compact
+string/dilaton relatives remain a separate generic diagnostic family.
 
 **Completion criterion:** the program never relies on an arbitrary tie-break
 between same-rank vertices and never claims a value from a singular block.
@@ -384,19 +467,12 @@ between same-rank vertices and never claims a value from a singular block.
 
 ### Milestone B: resolve genus-two contact profiles
 
-**Status:** the first rank obstruction is resolved. The command
-
-```bash
-sage cjr_full_equation_provider.sage --profile-split-rank
-```
-
-compiles string and dilaton relatives and obtains the exact rows
-`(-27/2,4)` and `(-9,2)`, with determinant `9`, on a
-`(-3,-1)`/`(-2,-2)` contact-resolved block. Thus the sectors are not
-intrinsically aggregated. Completing this milestone still requires building
-the full finite dependency closure, solving the extra contact `-1`,
-descendant, and insertion sectors in descending Laurent order, and reporting
-the resulting primitive `(-3)` and `(-2,-2)` values.
+**Status:** the former determinant-9 witness mixed psi conventions and is
+still rejected.  In the generic stabilized-descendant compiler its matrix
+also omitted contact-descendant columns.  In the Theorem 10.1 hypersurface
+path, rebuild the finite closure with `effective_basis_only`, where those
+columns are forbidden and only `psi_min` descendants occur, before reporting
+primitive `(-3)` and `(-2,-2)` values.
 
 For the genus-two one-point graph sum, the enumerator currently finds the
 base dependencies
@@ -429,12 +505,14 @@ For successive ambient degrees:
 
 ### Milestone D: arbitrary finite truncations
 
-**Status:** implemented for the supported plane-cubic compact sector by
+**Status:** the finite orchestration machinery is implemented for the
+supported plane-cubic compact sector by
 `log_glsm_infinity_orchestrator.sage`. The controller constructs the active
 finite closure generated by a configured probe family, selects and solves
 full-rank blocks, reports exact kernels, and checkpoints both extracted
-relations and values. Additional geometric sectors and richer known-GW probe
-backends remain separate extensions.
+relations and values. Descendant `t^0` rows remain unavailable until Phase 7b;
+additional geometric sectors and richer known-value backends remain separate
+extensions.
 
 The implemented bounds are `(g_max,d_max,n_max,t_min,t_max)` together with
 hard vertex/relation limits; contact length and `psi_min` are then bounded by
@@ -448,11 +526,13 @@ relations, and resumes without recomputing lower data.
 
 - CJR low-genus graph counts remain unchanged;
 - graph contributions are invariant under vertex relabeling;
-- equivariant base weights cancel from final non-equivariant invariants;
+- the auxiliary base weights admit a regular simultaneous non-equivariant
+  limit after each complete fixed-locus sum;
 - apparent R-weight poles cancel to the predicted order;
 - reconstructed GW series agree coefficientwise with independent elliptic
   theory;
-- results are unchanged by using distinct generic rational base weights;
+- distinct generic rational weights are tested only as an equivariant
+  diagnostic, not equated with the non-equivariant Laurent coefficients;
 - dimension-zero and known vanishing cases return exactly zero;
 - all aggregate values are visibly labeled as aggregates.
 
@@ -487,11 +567,43 @@ and graph enumerator should stay independent of the geometric backends.
 1. **Probe sufficiency.** Stationary numerical invariants may determine only
    aggregate combinations of contact profiles. Exact block-rank computation
    must decide this rather than assumption.
+
+   **Status: this risk has materialized, and the cause is structural.** CJR II,
+   Assumption 9.22, is what lets effective invariants be reduced to finitely
+   many basic ones, and it requires `3 - dim X + rk E = 3 - dim Z <= 0`. That
+   holds for the Calabi--Yau threefolds the theory targets, but `Z` here is an
+   elliptic *curve*, so the quantity is `+2` and the assumption fails for every
+   `g >= 2`. Definition 9.19 likewise admits no basic effective invariant for
+   the plane cubic beyond genus one. Since
+
+   ```text
+   red dim R = vir dim Mbar_{g,n}(Z,beta) + sum_i(c_i+1) = (2g-2+n) + sum_i(c_i+1)
+   ```
+
+   grows with `g`, the family of effective invariants is genuinely infinite.
+
+   Two candidate remedies have been measured and rejected; neither should be
+   retried without new mathematical input:
+
+   - adding the previously missing zero-marking localization probe rows leaves
+     the genus-three target component at rank 278 on 343 columns with the same
+     single kernel direction, because the new rows lie in the existing row
+     space;
+   - the cycle-valued unit axiom (CJR II, Theorem 8.4) collapses to the
+     already-implemented string equation (8.3) on dimension-zero data, and
+     otherwise introduces tautological-weighted effective cycles as new
+     unknowns rather than new equations.
+
+   The remaining honest routes are external input: a higher-genus analogue of
+   the explicit genus-one formulas (9.17) and (9.21), or the forthcoming
+   identification of effective cycles with closures of strata of holomorphic
+   differentials referenced in CJR II, §9.7.2.
 2. **Twisted higher-genus vertices.** A complete Hodge-integral backend is
    needed for unrestricted genus, even with unlimited graph-enumeration time.
 3. **Descendant normalization.** `psi_min`, stabilization pullbacks, and
    unstable conventions must be derived consistently before comparing
-   coefficients.
+   coefficients.  In the hypersurface effective-basis path, ordinary contact
+   descendants are forbidden rather than treated as additional unknowns.
 4. **Positive infinity degree.** It vanishes in the genus-two application but
    must remain in the general design.
 5. **Scope expansion.** Noncompact markings, nontrivial sectors, orbifold

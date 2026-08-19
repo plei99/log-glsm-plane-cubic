@@ -3,7 +3,7 @@
 load("log_glsm_infinity_orchestrator.sage")
 
 
-def synthetic_fixture(max_markings=2):
+def synthetic_fixture(max_markings=2, include_kernel_basis=True):
     a = EffectiveVertex(1, 0, (-1,), label="a")
     x = EffectiveVertex(2, 0, (-3, -1), label="x")
     y = EffectiveVertex(2, 0, (-2, -2), label="y")
@@ -41,6 +41,7 @@ def synthetic_fixture(max_markings=2):
         include_unit_relatives=False,
         max_genus=2,
         max_ambient_degree=0,
+        include_kernel_basis=include_kernel_basis,
     )
     provider = object()
     orchestrator = InfinityVertexOrchestrator(
@@ -54,6 +55,53 @@ def synthetic_fixture(max_markings=2):
 
 
 def run_tests():
+    deep_config = InfinityOrchestrationConfig(
+        max_markings=2, t_powers=(0,), include_unit_relatives=True,
+        max_unit_insertions=2,
+        include_chow_relations=True,
+        max_chow_unit_insertions=2,
+        chow_primary_only=True,
+        additional_probe_ambient_degrees=(1, 2),
+    )
+    assert [
+        (int(stage.max_markings), int(stage.max_unit_insertions))
+        for stage in deep_config.stages()
+    ] == [(1, 0), (2, 0), (1, 1), (2, 1), (1, 2), (2, 2)]
+    assert InfinityOrchestrationConfig.from_record(
+        deep_config.to_record()
+    ).to_record() == deep_config.to_record()
+    assert deep_config.additional_probe_ambient_degrees == (1, 2)
+    assert deep_config.include_chow_relations
+    assert deep_config.max_chow_unit_insertions == 2
+    assert deep_config.chow_primary_only
+
+    effective_config = InfinityOrchestrationConfig(
+        max_markings=2,
+        t_powers=(-4, -5),
+        include_unit_relatives=False,
+        max_unit_insertions=0,
+        include_chow_relations=True,
+        max_chow_unit_insertions=0,
+        chow_primary_only=True,
+        effective_basis_only=True,
+    )
+    assert InfinityOrchestrationConfig.from_record(
+        effective_config.to_record()
+    ).to_record() == effective_config.to_record()
+    assert effective_config.effective_basis_only
+    try:
+        InfinityOrchestrationConfig(
+            include_unit_relatives=False,
+            include_chow_relations=False,
+            chow_primary_only=True,
+            effective_basis_only=True,
+        )
+        raise AssertionError(
+            "effective-basis mode must require primary Chow probes"
+        )
+    except ValueError:
+        pass
+
     orchestrator, vertices, calls, candidates, config = synthetic_fixture(2)
     a, x, y = vertices
     report = orchestrator.run()
@@ -83,6 +131,16 @@ def run_tests():
     assert restored.solver.values == orchestrator.solver.values
     assert restored.checkpoint() == checkpoint
 
+    stale_checkpoint = dict(checkpoint)
+    stale_checkpoint["version"] = 1
+    try:
+        restored.restore_checkpoint(stale_checkpoint)
+        raise AssertionError(
+            "pre-dimension-filter checkpoints must be rejected"
+        )
+    except ValueError:
+        pass
+
     singular, singular_vertices, _, _, _ = synthetic_fixture(1)
     singular_report = singular.run()
     json.dumps(singular_report)
@@ -91,6 +149,48 @@ def run_tests():
     assert deficiency["rank"] == 1
     assert deficiency["columns"] == 2
     assert deficiency["kernel"]
+
+    compact, _, _, _, _ = synthetic_fixture(
+        1, include_kernel_basis=False
+    )
+    compact_deficiency = compact.run()["frontier"]["rank_deficiencies"][0]
+    assert compact_deficiency["rank"] == 1
+    assert compact_deficiency["columns"] == 2
+    assert compact_deficiency["kernel_dimension"] == 1
+    assert compact_deficiency["kernel"] is None
+
+    # A singular component may still determine selected coordinates.  Here
+    # x+y+z=6 and y+z=4 leave y-z free but force x=2.
+    partial_x = EffectiveVertex(2, 0, (-3,), label="partial_x")
+    partial_y = EffectiveVertex(2, 0, (-3,), label="partial_y")
+    partial_z = EffectiveVertex(2, 0, (-3,), label="partial_z")
+    partial_relations = (
+        CompiledLocalizationRelation(
+            ProbeSpec.stationary(2, 0, (2,), label="partial all"),
+            0, QQ, 6,
+            terms=((1, (partial_x,)), (1, (partial_y,)),
+                   (1, (partial_z,))),
+        ),
+        CompiledLocalizationRelation(
+            ProbeSpec.stationary(2, 0, (1, 1), label="partial pair"),
+            0, QQ, 4,
+            terms=((1, (partial_y,)), (1, (partial_z,))),
+        ),
+    )
+    partial_config = InfinityOrchestrationConfig(
+        max_markings=1, t_powers=(0,), include_unit_relatives=False,
+        max_genus=2, max_ambient_degree=0,
+    )
+    partial = InfinityVertexOrchestrator(
+        object(), (partial_x,), config=partial_config,
+        coefficient_field=QQ,
+        candidate_provider=lambda *args: partial_relations,
+    )
+    assert partial.run()["status"] == "complete"
+    assert partial.solver.values[partial_x] == 2
+    assert partial_y not in partial.solver.values
+    assert partial_z not in partial.solver.values
+    assert partial.block_history[-1]["partial"]
 
     # A richer marking schedule reuses the blocked checkpoint and compiles
     # only the newly available stage.
@@ -114,6 +214,7 @@ def run_tests():
         max_markings=1,
         t_powers=(0,),
         include_unit_relatives=False,
+        include_punctured_axioms=False,
         max_genus=1,
         max_ambient_degree=0,
     )
@@ -140,14 +241,54 @@ def run_tests():
     )
     restored_real.restore_checkpoint(real.checkpoint())
     assert not restored_provider._compilations
+
+    obsolete = real.checkpoint()
+    obsolete["version"] = 6
+    try:
+        restored_real.restore_checkpoint(obsolete)
+        raise AssertionError(
+            "checkpoints without Chow-degree filtering must be rejected"
+        )
+    except ValueError:
+        pass
     restored_provider.candidate_relations(
         1, 0, max_markings=1, t_powers=(0,),
         require_complete=True, include_unit_relatives=False,
     )
     assert not restored_provider._compilations
 
-    # A truncated real genus-two run discovers all base contact sectors and
-    # returns a certified rank frontier instead of conflating the profiles.
+    # Adding a probe ambient degree revisits completed marking stages;
+    # otherwise the old stage key would hide the new dimension-zero rows.
+    degree_base_config = InfinityOrchestrationConfig(
+        max_markings=1, t_powers=(0,), include_unit_relatives=False,
+        max_genus=1, max_ambient_degree=0,
+    )
+    degree_base = InfinityVertexOrchestrator(
+        object(), (genus_one,), config=degree_base_config,
+        coefficient_field=QQ,
+        candidate_provider=lambda *args: tuple(),
+        axiom_provider=None,
+    )
+    degree_base.current_stage = ZZ(0)
+    degree_base.compiled_level_stages.add((1, 0, 1, False, 0))
+    degree_extended_config = InfinityOrchestrationConfig(
+        max_markings=1, t_powers=(0,), include_unit_relatives=False,
+        additional_probe_ambient_degrees=(1,),
+        max_genus=1, max_ambient_degree=1,
+    )
+    degree_extended = InfinityVertexOrchestrator(
+        object(), (genus_one,), config=degree_extended_config,
+        coefficient_field=QQ,
+        candidate_provider=lambda *args: tuple(),
+        axiom_provider=None,
+    )
+    degree_extended.restore_checkpoint(degree_base.checkpoint())
+    assert degree_extended.current_stage == -1
+    assert not degree_extended.compiled_level_stages
+
+    # A truncated real genus-two run now includes the stabilization-corrected
+    # t^0 row.  Its contact-descendant support does not falsely touch the old
+    # undecorated (-3) target, so this deliberately tiny family still blocks.
     genus_two_provider = PlaneCubicFullEquationProvider(laurent_precision=8)
     genus_two = EffectiveVertex(
         2, 0, (-3,), psi_min=0, insertions=(1,)
@@ -156,6 +297,7 @@ def run_tests():
         max_markings=1,
         t_powers=(2, 1, 0),
         include_unit_relatives=False,
+        include_punctured_axioms=False,
         max_genus=2,
         max_ambient_degree=0,
     )
@@ -168,10 +310,15 @@ def run_tests():
         vertex.contacts for vertex in truncated.vertices
         if vertex.genus == 2
     )
-    assert {
-        (-3,), (-3, -1), (-2, -2), (-2, -2, -1)
-    }.issubset(genus_two_profiles)
-    assert truncated_report["frontier"]["rank_deficiencies"]
+    assert genus_two_profiles == {(-3,)}
+    assert truncated_report["active_relation_count"] == 0
+    assert {relation.t_power for relation in truncated.relations.values()} \
+        == {0}
+    assert all(
+        relation.probe.psi_convention == "stabilized"
+        for relation in truncated.relations.values()
+    )
+    assert truncated_report["frontier"]["vertices_without_linear_incidence"]
 
 
 run_tests()
