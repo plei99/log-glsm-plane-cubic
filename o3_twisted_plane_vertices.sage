@@ -6,7 +6,10 @@ There are three deliberately distinct interfaces:
   for constant genus-zero vertices and accepts a registry of externally
   proven values.  Unsupported higher-genus Hodge data raises a diagnostic.
 * ``O3TwistedIBackend`` evaluates every fixed-point coefficient of the
-  genus-zero twisted I-function.
+  conventional Euler-twisted genus-zero I-function.  Its fibre convention is
+  ``s+3H``.  The CJR stable-zero class used elsewhere is the *dual* Euler
+  twist with fibre weight ``t-3H``; these are related by dualization but must
+  not be interchanged term by term.
 * ``ResummedO3TwistedTheory`` provides the proven flat-coordinate primitive
   stationary blocks used by the existing plane-cubic reconstruction.
 
@@ -96,6 +99,13 @@ class TwistedInsertion(SageObject):
             lift_kind=lift_kind, lift_index=fixed_point,
         )
 
+    def with_scale(self, scale):
+        """Return the same cohomology/descendant insertion with a new scale."""
+        return TwistedInsertion(
+            self.h_power, self.psi_power, scale, self.label,
+            lift_kind=self.lift_kind, lift_index=self.lift_index,
+        )
+
     def allowed_fixed_points(self):
         """Fixed points where the chosen lift can have nonzero restriction."""
         if self.lift_kind == "support":
@@ -136,6 +146,52 @@ class TwistedInsertion(SageObject):
             self.lift_kind, self.lift_index,
         )
 
+    def localization_signature(self):
+        r"""Return the mathematical insertion, omitting provenance labels.
+
+        Edge labels only record which CJR flag created an insertion.  They do
+        not change the corresponding class on ``Mbar(P2)`` and therefore must
+        not split the expensive fixed-locus cache.
+        """
+        return (
+            self.h_power, self.psi_power, self.scale,
+            self.lift_kind, self.lift_index,
+        )
+
+    def localization_record(self):
+        return {
+            "h_power": int(self.h_power),
+            "psi_power": int(self.psi_power),
+            "scale": str(self.scale),
+            "lift_kind": self.lift_kind,
+            "lift_index": (
+                None if self.lift_index is None else int(self.lift_index)
+            ),
+        }
+
+    def to_record(self):
+        return {
+            "h_power": int(self.h_power),
+            "psi_power": int(self.psi_power),
+            "scale": str(self.scale),
+            "label": self.label,
+            "lift_kind": self.lift_kind,
+            "lift_index": (
+                None if self.lift_index is None else int(self.lift_index)
+            ),
+        }
+
+    @classmethod
+    def from_record(cls, record):
+        return cls(
+            record.get("h_power", 0),
+            record.get("psi_power", 0),
+            QQ(record.get("scale", "1")),
+            record.get("label", ""),
+            lift_kind=record.get("lift_kind", "standard"),
+            lift_index=record.get("lift_index"),
+        )
+
     def __hash__(self):
         return hash(self.signature())
 
@@ -159,12 +215,19 @@ class TwistedZeroVertexRequest(SageObject):
     def __init__(self, genus, degree, insertions=(), label=""):
         self.genus = ZZ(genus)
         self.degree = ZZ(degree)
-        self.insertions = tuple(insertions)
+        raw_insertions = tuple(insertions)
         self.label = str(label)
         if self.genus < 0 or self.degree < 0:
             raise ValueError("genus and degree must be nonnegative")
-        if any(not isinstance(item, TwistedInsertion) for item in self.insertions):
+        if any(not isinstance(item, TwistedInsertion) for item in raw_insertions):
             raise TypeError("twisted vertex insertions must be TwistedInsertion objects")
+        # Stable-map invariants are symmetric in their marked insertions.  A
+        # canonical order both makes sparse lift planning deterministic and
+        # collapses the factorial family of edge-label permutations before
+        # fixed-graph or admcycles work begins.
+        self.insertions = tuple(sorted(
+            raw_insertions, key=lambda item: item.localization_signature()
+        ))
 
     @property
     def valence(self):
@@ -177,7 +240,50 @@ class TwistedZeroVertexRequest(SageObject):
         )
 
     def signature(self):
-        return self.genus, self.degree, tuple(item.signature() for item in self.insertions)
+        return (
+            self.genus,
+            self.degree,
+            tuple(item.localization_signature() for item in self.insertions),
+        )
+
+    def normalized_scales(self):
+        r"""Factor multilinear scalar coefficients out of the request."""
+        factor = prod(item.scale for item in self.insertions)
+        if not factor:
+            return QQ.zero(), self
+        if all(item.scale == 1 for item in self.insertions):
+            return QQ.one(), self
+        normalized = tuple(item.with_scale(1) for item in self.insertions)
+        return factor, TwistedZeroVertexRequest(
+            self.genus, self.degree, normalized, label=self.label
+        )
+
+    def to_record(self):
+        return {
+            "genus": int(self.genus),
+            "degree": int(self.degree),
+            "insertions": [item.to_record() for item in self.insertions],
+            "label": self.label,
+        }
+
+    def localization_record(self):
+        return {
+            "genus": int(self.genus),
+            "degree": int(self.degree),
+            "insertions": [
+                item.localization_record() for item in self.insertions
+            ],
+        }
+
+    @classmethod
+    def from_record(cls, record):
+        return cls(
+            record["genus"],
+            record["degree"],
+            tuple(TwistedInsertion.from_record(item)
+                  for item in record.get("insertions", ())),
+            label=record.get("label", ""),
+        )
 
     def __hash__(self):
         return hash(self.signature())
@@ -242,6 +348,35 @@ class TwistedZeroVertexBackend(SageObject):
         else:
             p2_value = 0
         return self.rings.full(scale * psi_value * p2_value)
+
+
+class CollectingTwistedZeroVertexBackend(TwistedZeroVertexBackend):
+    r"""Record zero-vertex requests without performing their integrations.
+
+    Returning zero is intentional: the graph compiler still visits every
+    local zero-vertex option, but it does not spend time assembling infinity
+    contributions that are irrelevant to a precomputation inventory.
+    """
+
+    def __init__(self, rings=None):
+        super().__init__(rings=rings)
+        self._requests = {}
+
+    def evaluate(self, request):
+        if not isinstance(request, TwistedZeroVertexRequest):
+            raise TypeError("request must be a TwistedZeroVertexRequest")
+        self._requests.setdefault(request, request)
+        return self.rings.full(0)
+
+    @property
+    def requests(self):
+        return tuple(sorted(
+            self._requests.values(),
+            key=lambda request: (
+                int(request.degree), int(request.genus), int(request.valence),
+                repr(request.signature()),
+            ),
+        ))
 
 
 class O3TwistedIBackend(SageObject):

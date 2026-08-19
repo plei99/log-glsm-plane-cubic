@@ -3,7 +3,7 @@ r"""Finite-closure orchestration for contact-resolved infinity vertices.
 The low-level DP engine solves an equation after its probe has been chosen.
 This module supplies the missing controller:
 
-* generate progressively richer known probes;
+* generate progressively richer convention-compatible probes;
 * activate only relations incident to the requested dependency closure;
 * discover every exact ``EffectiveVertex`` factor in those relations;
 * substitute solved values and find linear-ready blocks;
@@ -22,25 +22,41 @@ import os
 import sys
 
 load("cjr_full_equation_provider.sage")
+load("cjr_punctured_axioms.sage")
 
 
 class OrchestrationLimitError(RuntimeError):
     """A caller-supplied finite resource bound was exceeded."""
 
 
+class InconsistentLocalizationRelationError(ArithmeticError):
+    """A fully evaluated localization/axiom row has nonzero residual."""
+
+
 class ProbeExpansionStage(SageObject):
     """One progressively richer family of dimension-compatible probes."""
 
-    def __init__(self, max_markings, include_unit_relatives=False):
+    def __init__(self, max_markings, include_unit_relatives=False,
+                 max_unit_insertions=None):
         self.max_markings = ZZ(max_markings)
         self.include_unit_relatives = bool(include_unit_relatives)
+        if max_unit_insertions is None:
+            max_unit_insertions = 1 if self.include_unit_relatives else 0
+        self.max_unit_insertions = ZZ(max_unit_insertions)
         if self.max_markings < 1:
             raise ValueError("a probe stage needs at least one marking")
+        if self.max_unit_insertions < 0:
+            raise ValueError("max_unit_insertions must be nonnegative")
+        if self.include_unit_relatives != bool(self.max_unit_insertions):
+            raise ValueError(
+                "unit stages need a positive max_unit_insertions depth"
+            )
 
     def to_record(self):
         return {
             "max_markings": int(self.max_markings),
             "include_unit_relatives": self.include_unit_relatives,
+            "max_unit_insertions": int(self.max_unit_insertions),
         }
 
     @classmethod
@@ -48,10 +64,14 @@ class ProbeExpansionStage(SageObject):
         return cls(
             record["max_markings"],
             record.get("include_unit_relatives", False),
+            record.get("max_unit_insertions"),
         )
 
     def __repr__(self):
-        suffix = "+unit" if self.include_unit_relatives else ""
+        suffix = (
+            "+unit<=%s" % self.max_unit_insertions
+            if self.include_unit_relatives else ""
+        )
         return "ProbeExpansionStage(markings<=%s%s)" % (
             self.max_markings, suffix
         )
@@ -60,14 +80,33 @@ class ProbeExpansionStage(SageObject):
 class InfinityOrchestrationConfig(SageObject):
     """Finite bounds and probe schedule for an orchestration run."""
 
-    def __init__(self, max_markings=2, t_powers=(2, 1, 0, -1, -2),
-                 include_unit_relatives=True, max_genus=None,
+    def __init__(self, max_markings=2, t_powers=(0, -1, -2),
+                 include_unit_relatives=True, max_unit_insertions=None,
+                 include_chow_relations=False,
+                 max_chow_unit_insertions=1,
+                 chow_primary_only=False,
+                 effective_basis_only=False,
+                 additional_probe_ambient_degrees=(),
+                 include_punctured_axioms=True,
+                 max_genus=None,
                  max_ambient_degree=None, max_vertices=2000,
                  max_relations=4000, max_solve_rounds=1000,
-                 require_complete=True, fail_on_unsupported=False):
+                 require_complete=True, fail_on_unsupported=False,
+                 include_kernel_basis=True):
         self.max_markings = ZZ(max_markings)
         self.t_powers = tuple(ZZ(power) for power in t_powers)
         self.include_unit_relatives = bool(include_unit_relatives)
+        if max_unit_insertions is None:
+            max_unit_insertions = 1 if self.include_unit_relatives else 0
+        self.max_unit_insertions = ZZ(max_unit_insertions)
+        self.include_chow_relations = bool(include_chow_relations)
+        self.max_chow_unit_insertions = ZZ(max_chow_unit_insertions)
+        self.chow_primary_only = bool(chow_primary_only)
+        self.effective_basis_only = bool(effective_basis_only)
+        self.additional_probe_ambient_degrees = tuple(sorted(set(
+            ZZ(degree) for degree in additional_probe_ambient_degrees
+        )))
+        self.include_punctured_axioms = bool(include_punctured_axioms)
         self.max_genus = None if max_genus is None else ZZ(max_genus)
         self.max_ambient_degree = (
             None if max_ambient_degree is None
@@ -78,9 +117,30 @@ class InfinityOrchestrationConfig(SageObject):
         self.max_solve_rounds = ZZ(max_solve_rounds)
         self.require_complete = bool(require_complete)
         self.fail_on_unsupported = bool(fail_on_unsupported)
+        self.include_kernel_basis = bool(include_kernel_basis)
 
         if self.max_markings < 1:
             raise ValueError("max_markings must be positive")
+        if self.max_unit_insertions < 0:
+            raise ValueError("max_unit_insertions must be nonnegative")
+        if self.max_chow_unit_insertions < 0:
+            raise ValueError(
+                "max_chow_unit_insertions must be nonnegative"
+            )
+        if any(degree < 0 for degree in self.additional_probe_ambient_degrees):
+            raise ValueError("additional probe degrees must be nonnegative")
+        if self.include_unit_relatives != bool(self.max_unit_insertions):
+            raise ValueError(
+                "include_unit_relatives and max_unit_insertions disagree"
+            )
+        if self.effective_basis_only and (
+                not self.include_chow_relations
+                or not self.chow_primary_only
+                or self.include_unit_relatives):
+            raise ValueError(
+                "effective-basis-only reconstruction requires primary Chow "
+                "relations and excludes descendant unit relatives"
+            )
         if not self.t_powers:
             raise ValueError("at least one Laurent coefficient is required")
         if len(set(self.t_powers)) != len(self.t_powers):
@@ -101,10 +161,11 @@ class InfinityOrchestrationConfig(SageObject):
             for markings in range(1, self.max_markings + 1)
         ]
         if self.include_unit_relatives:
-            stages.extend(
-                ProbeExpansionStage(markings, True)
-                for markings in range(1, self.max_markings + 1)
-            )
+            for unit_depth in range(1, self.max_unit_insertions + 1):
+                stages.extend(
+                    ProbeExpansionStage(markings, True, unit_depth)
+                    for markings in range(1, self.max_markings + 1)
+                )
         return tuple(stages)
 
     def to_record(self):
@@ -112,6 +173,18 @@ class InfinityOrchestrationConfig(SageObject):
             "max_markings": int(self.max_markings),
             "t_powers": [int(power) for power in self.t_powers],
             "include_unit_relatives": self.include_unit_relatives,
+            "max_unit_insertions": int(self.max_unit_insertions),
+            "include_chow_relations": self.include_chow_relations,
+            "max_chow_unit_insertions": int(
+                self.max_chow_unit_insertions
+            ),
+            "chow_primary_only": self.chow_primary_only,
+            "effective_basis_only": self.effective_basis_only,
+            "additional_probe_ambient_degrees": [
+                int(degree)
+                for degree in self.additional_probe_ambient_degrees
+            ],
+            "include_punctured_axioms": self.include_punctured_axioms,
             "max_genus": (
                 None if self.max_genus is None else int(self.max_genus)
             ),
@@ -124,6 +197,7 @@ class InfinityOrchestrationConfig(SageObject):
             "max_solve_rounds": int(self.max_solve_rounds),
             "require_complete": self.require_complete,
             "fail_on_unsupported": self.fail_on_unsupported,
+            "include_kernel_basis": self.include_kernel_basis,
         }
 
     @classmethod
@@ -143,10 +217,15 @@ class InfinityVertexOrchestrator(SageObject):
     """
 
     CHECKPOINT_FORMAT = "log-glsm-infinity-orchestrator"
-    CHECKPOINT_VERSION = 1
+    # Version 9 adds the CJR-I stabilization-boundary comparison and hence
+    # log-domain stationary rows to effective-basis stages.  A version-8
+    # checkpoint with the same configuration is missing those relations and
+    # cannot be treated as a completed stage.
+    CHECKPOINT_VERSION = 9
 
     def __init__(self, provider, roots, initial_values=None, config=None,
-                 coefficient_field=None, candidate_provider=None):
+                 coefficient_field=None, candidate_provider=None,
+                 axiom_provider=None):
         self.provider = provider
         self.roots = tuple(roots)
         if not self.roots:
@@ -165,6 +244,14 @@ class InfinityVertexOrchestrator(SageObject):
         self.candidate_provider = (
             candidate_provider or self._plane_cubic_candidates
         )
+        self.axiom_provider = axiom_provider
+        if self.config.include_punctured_axioms \
+                and self.axiom_provider is None:
+            self.axiom_provider = PlaneCubicPuncturedAxioms(
+                coefficient_field
+            )
+        if not self.config.include_punctured_axioms:
+            self.axiom_provider = None
 
         initial_values = dict(initial_values or {})
         self._assignments = {}
@@ -177,6 +264,7 @@ class InfinityVertexOrchestrator(SageObject):
         self.relations = {}
         self.active_relation_keys = set()
         self.compiled_level_stages = set()
+        self.compiled_axiom_vertices = set()
         self.failed_level_stages = {}
         self.current_stage = -1
         self.block_history = []
@@ -193,16 +281,42 @@ class InfinityVertexOrchestrator(SageObject):
             if self.config.max_ambient_degree is None
             else self.config.max_ambient_degree
         )
+        if self.config.additional_probe_ambient_degrees:
+            self._max_ambient_degree = max(
+                self._max_ambient_degree,
+                max(self.config.additional_probe_ambient_degrees),
+            )
 
     def _plane_cubic_candidates(self, genus, ambient_degree, stage, config):
-        return self.provider.candidate_relations(
-            genus,
-            ambient_degree,
-            max_markings=stage.max_markings,
-            t_powers=config.t_powers,
-            require_complete=config.require_complete,
-            include_unit_relatives=stage.include_unit_relatives,
-        )
+        probe_degrees = tuple(sorted(set(
+            (ZZ(ambient_degree),)
+            + config.additional_probe_ambient_degrees
+        )))
+        relations = []
+        for probe_degree in probe_degrees:
+            if probe_degree < ambient_degree:
+                continue
+            keyword_arguments = {
+                "max_markings": stage.max_markings,
+                "t_powers": config.t_powers,
+                "require_complete": config.require_complete,
+                "include_unit_relatives": stage.include_unit_relatives,
+                "max_unit_insertions": stage.max_unit_insertions,
+                "include_chow_relations": (
+                    config.include_chow_relations
+                    and not stage.include_unit_relatives
+                ),
+                "max_chow_unit_insertions": (
+                    config.max_chow_unit_insertions
+                ),
+                "chow_primary_only": config.chow_primary_only,
+            }
+            if config.effective_basis_only:
+                keyword_arguments["effective_basis_only"] = True
+            relations.extend(self.provider.candidate_relations(
+                genus, probe_degree, **keyword_arguments
+            ))
+        return tuple(relations)
 
     def _equation_for(self, target):
         if target not in self._assignments:
@@ -234,6 +348,7 @@ class InfinityVertexOrchestrator(SageObject):
             int(ambient_degree),
             int(stage.max_markings),
             bool(stage.include_unit_relatives),
+            int(stage.max_unit_insertions),
         )
 
     def _level_allowed(self, genus, ambient_degree):
@@ -284,6 +399,43 @@ class InfinityVertexOrchestrator(SageObject):
         self.compiled_level_stages.add(key)
         return bool(new_relations)
 
+    def _compile_axiom_relations(self):
+        """Add CJR unit-removal equations and closed base values once."""
+        if self.axiom_provider is None:
+            return False
+        changed = False
+        pending = sorted(
+            self.vertices.difference(self.compiled_axiom_vertices),
+            key=lambda item: item.order_key(),
+        )
+        for vertex in pending:
+            known = self.axiom_provider.known_value(vertex)
+            if known is not None:
+                known = self.coefficient_field(known)
+                if vertex in self.solver.values \
+                        and self.solver.values[vertex] != known:
+                    raise ArithmeticError(
+                        "a solved infinity value contradicts the CJR closed "
+                        "formula: %r has %s, expected %s"
+                        % (vertex, self.solver.values[vertex], known)
+                    )
+                if vertex not in self.solver.values:
+                    self.solver.values[vertex] = known
+                    changed = True
+
+            for relation in self.axiom_provider.relations_for(vertex):
+                relation_key = self._relation_key(relation)
+                if relation_key in self.relations:
+                    continue
+                if len(self.relations) >= self.config.max_relations:
+                    raise OrchestrationLimitError(
+                        "relation bound %s exceeded" % self.config.max_relations
+                    )
+                self.relations[relation_key] = relation
+                changed = True
+            self.compiled_axiom_vertices.add(vertex)
+        return changed
+
     def _activate_incident_relations(self):
         changed = False
         while True:
@@ -294,13 +446,15 @@ class InfinityVertexOrchestrator(SageObject):
                 factors = self._relation_vertices(relation)
                 if not factors.intersection(self.vertices):
                     continue
-                self.active_relation_keys.add(key)
                 new_vertices = factors.difference(self.vertices)
                 if len(self.vertices) + len(new_vertices) \
                         > self.config.max_vertices:
                     raise OrchestrationLimitError(
                         "vertex bound %s exceeded" % self.config.max_vertices
                     )
+                # Keep activation atomic with respect to the safety bound so
+                # a checkpoint taken after the exception can be resumed.
+                self.active_relation_keys.add(key)
                 self.vertices.update(new_vertices)
                 local_change = True
                 changed = True
@@ -314,7 +468,8 @@ class InfinityVertexOrchestrator(SageObject):
         changed = True
         any_change = False
         while changed:
-            changed = self._activate_incident_relations()
+            changed = self._compile_axiom_relations()
+            changed = self._activate_incident_relations() or changed
             any_change = any_change or changed
             levels = sorted(set(
                 (vertex.genus, vertex.ambient_degree)
@@ -413,6 +568,7 @@ class InfinityVertexOrchestrator(SageObject):
                 len(vertex.contacts),
                 vertex.psi_min,
                 vertex.insertions,
+                vertex.contact_psi,
                 vertex.contacts,
             )
             for vertex in component
@@ -428,8 +584,74 @@ class InfinityVertexOrchestrator(SageObject):
         )
         return targets, selection
 
+    def _relation_right_hand_side(self, relation):
+        """Evaluate the constant side of a linear-ready relation."""
+        off_diagonal = self.coefficient_field.zero()
+        for coefficient, factors in relation.terms:
+            unsolved = tuple(
+                factor for factor in factors
+                if factor not in self.solver.values
+            )
+            if unsolved:
+                continue
+            value = coefficient
+            for factor in factors:
+                value *= self.solver.values[factor]
+            off_diagonal += value
+        return (
+            relation.known_gw
+            - relation.twisted_zero_level
+            - off_diagonal
+        )
+
+    def _check_solved_relations(self):
+        """Reject a fully substituted row whose exact residual is nonzero."""
+        for key in sorted(self.active_relation_keys):
+            relation = self.relations[key]
+            if any(
+                    factor not in self.solver.values
+                    for coefficient, factors in relation.terms
+                    for factor in factors):
+                continue
+            residual = self._relation_right_hand_side(relation)
+            if residual:
+                raise InconsistentLocalizationRelationError(
+                    "fully solved relation %r [t^%s] has residual %s"
+                    % (relation.probe, relation.t_power, residual)
+                )
+
+    def _identifiable_values(self, targets, selection):
+        r"""Recover coordinates fixed by a rank-deficient affine system.
+
+        A component need not be entirely invertible.  In reduced row-echelon
+        form, a pivot coordinate is nevertheless unique when its row has no
+        free-variable entries.  This detects exactly the coordinates that
+        vanish on the right kernel, without materialising a kernel basis.
+        """
+        if not selection.rows or selection.is_full_rank:
+            return {}
+        right_hand_side = matrix(
+            self.coefficient_field, len(selection.relations), 1,
+            [self._relation_right_hand_side(relation)
+             for relation in selection.relations],
+        )
+        reduced = selection.matrix.augment(right_hand_side).rref()
+        pivots = selection.matrix.pivots()
+        free_columns = tuple(
+            column for column in range(len(targets))
+            if column not in set(pivots)
+        )
+        values = {}
+        for row, pivot in enumerate(pivots):
+            if all(not reduced[row, column] for column in free_columns):
+                values[targets[pivot]] = self.coefficient_field(
+                    reduced[row, len(targets)]
+                )
+        return values
+
     def solve_next_block(self):
         """Solve one highest-priority full-rank linear-ready block."""
+        self._check_solved_relations()
         components, nonlinear = self._ready_components()
         candidates = []
         deficiencies = []
@@ -447,7 +669,33 @@ class InfinityVertexOrchestrator(SageObject):
             deficiencies, nonlinear
         )
         if not candidates:
-            return None
+            partial_candidates = []
+            for component, relations, targets, selection in deficiencies:
+                values = self._identifiable_values(targets, selection)
+                if values:
+                    partial_candidates.append((component, selection, values))
+            if not partial_candidates:
+                return None
+            partial_candidates.sort(
+                key=lambda item: self._component_priority(item[0]),
+                reverse=True,
+            )
+            component, selection, values = partial_candidates[0]
+            self.solver.values.update(values)
+            self._check_solved_relations()
+            self._last_frontier = None
+            self.block_history.append({
+                "partial": True,
+                "component_size": len(component),
+                "rank": int(selection.rank),
+                "targets": [target.to_record() for target in sorted(
+                    values, key=lambda item: item.order_key()
+                )],
+                "values": [str(values[target]) for target in sorted(
+                    values, key=lambda item: item.order_key()
+                )],
+            })
+            return values
         candidates.sort(
             key=lambda item: (
                 self._component_priority(item[0]),
@@ -459,6 +707,7 @@ class InfinityVertexOrchestrator(SageObject):
         for target, relation in zip(targets, selection.relations):
             self._assignments[target] = relation
         values = self.solver.solve_block(targets)
+        self._check_solved_relations()
         record = {
             "targets": [target.to_record() for target in targets],
             "probes": [relation.probe.to_record()
@@ -491,6 +740,12 @@ class InfinityVertexOrchestrator(SageObject):
 
     def run(self):
         """Expand probe stages until the roots solve or the schedule stalls."""
+        if self.current_stage < 0 and self.axiom_provider is not None:
+            changed = True
+            while changed:
+                changed = self._compile_axiom_relations()
+                changed = self._activate_incident_relations() or changed
+            self.solve_until_stalled()
         while True:
             if self.roots_solved():
                 break
@@ -509,14 +764,20 @@ class InfinityVertexOrchestrator(SageObject):
         ready_vertices = set()
         for component, relations, targets, selection in deficiencies:
             ready_vertices.update(component)
-            deficiency_records.append({
+            record = {
                 "targets": [target.to_record() for target in targets],
                 "rank": int(selection.rank),
                 "columns": len(targets),
-                "kernel": [[str(value) for value in vector]
-                           for vector in selection.kernel_basis()],
+                "kernel_dimension": len(targets) - int(selection.rank),
+                "kernel": None,
                 "candidate_rows": len(relations),
-            })
+            }
+            if self.config.include_kernel_basis:
+                record["kernel"] = [
+                    [str(value) for value in vector]
+                    for vector in selection.kernel_basis()
+                ]
+            deficiency_records.append(record)
         unsolved = set(self.vertices).difference(self.solver.values)
         nonlinear_vertices = set(
             factor
@@ -582,6 +843,7 @@ class InfinityVertexOrchestrator(SageObject):
                     "ambient_degree": key[1],
                     "max_markings": key[2],
                     "include_unit_relatives": key[3],
+                    "max_unit_insertions": key[4],
                     "reason": reason,
                 }
                 for key, reason in sorted(self.failed_level_stages.items())
@@ -620,7 +882,7 @@ class InfinityVertexOrchestrator(SageObject):
                     "genus": key[0],
                     "ambient_degree": key[1],
                     "stage": ProbeExpansionStage(
-                        key[2], key[3]
+                        key[2], key[3], key[4]
                     ).to_record(),
                 }
                 for key in sorted(self.compiled_level_stages)
@@ -630,7 +892,7 @@ class InfinityVertexOrchestrator(SageObject):
                     "genus": key[0],
                     "ambient_degree": key[1],
                     "stage": ProbeExpansionStage(
-                        key[2], key[3]
+                        key[2], key[3], key[4]
                     ).to_record(),
                     "reason": reason,
                 }
@@ -668,13 +930,29 @@ class InfinityVertexOrchestrator(SageObject):
             )
             self.relations[self._relation_key(relation)] = relation
             self._cache_restored_relation_in_provider(relation)
+        chow_schedule_richer = (
+            self.config.include_chow_relations
+            and (
+                not saved_config.include_chow_relations
+                or self.config.max_chow_unit_insertions
+                > saved_config.max_chow_unit_insertions
+                or (
+                    saved_config.chow_primary_only
+                    and not self.config.chow_primary_only
+                )
+            )
+        )
+        probe_schedule_richer = not set(
+            self.config.additional_probe_ambient_degrees
+        ).issubset(set(saved_config.additional_probe_ambient_degrees))
         current_stage_spec = checkpoint.get("current_stage_spec")
         if current_stage_spec is None:
             self.current_stage = ZZ(-1)
         else:
+            saved_stage = ProbeExpansionStage.from_record(current_stage_spec)
             matches = [
                 index for index, stage in enumerate(self.config.stages())
-                if stage.to_record() == current_stage_spec
+                if stage.to_record() == saved_stage.to_record()
             ]
             if not matches:
                 raise ValueError(
@@ -694,6 +972,7 @@ class InfinityVertexOrchestrator(SageObject):
             )
             for entry in checkpoint.get("compiled_level_stages", ())
         )
+        self.compiled_axiom_vertices = set()
         self.failed_level_stages = {
             self._level_stage_key(
                 entry["genus"],
@@ -702,6 +981,13 @@ class InfinityVertexOrchestrator(SageObject):
             ): entry["reason"]
             for entry in checkpoint.get("failed_level_stages", ())
         }
+        if chow_schedule_richer or probe_schedule_richer:
+            # Revisit the finite stage schedule when extra probe degrees are
+            # added; restored rows are cached in the provider, so old probes
+            # do not trigger fixed-locus recompilation.
+            self.current_stage = ZZ(-1)
+            self.compiled_level_stages = set()
+            self.failed_level_stages = {}
         self.block_history = list(checkpoint.get("block_history", ()))
         self._assignments = {}
         self.solver = InfinityVertexDP(
@@ -718,10 +1004,26 @@ class InfinityVertexOrchestrator(SageObject):
         """Allow checkpoint reuse under a richer marking/unit schedule."""
         if tuple(saved.t_powers) != tuple(self.config.t_powers):
             return False
+        if self.config.effective_basis_only != saved.effective_basis_only:
+            return False
         if self.config.max_markings < saved.max_markings:
             return False
         if saved.include_unit_relatives \
                 and not self.config.include_unit_relatives:
+            return False
+        if saved.include_punctured_axioms \
+                and not self.config.include_punctured_axioms:
+            return False
+        if self.config.max_unit_insertions < saved.max_unit_insertions:
+            return False
+        if saved.include_chow_relations \
+                and not self.config.include_chow_relations:
+            return False
+        if self.config.max_chow_unit_insertions \
+                < saved.max_chow_unit_insertions:
+            return False
+        if not set(saved.additional_probe_ambient_degrees).issubset(set(
+                self.config.additional_probe_ambient_degrees)):
             return False
         saved_genus = (
             max(root.genus for root in self.roots)
@@ -772,20 +1074,72 @@ def _main():
     parser.add_argument("--contacts", type=int, nargs="+", required=True)
     parser.add_argument("--psi-min", type=int, default=0)
     parser.add_argument("--insertions", type=int, nargs="+", required=True)
+    parser.add_argument(
+        "--contact-psi", type=int, nargs="+",
+        help=("ordinary cotangent power at each contact; defaults to zero "
+              "at every contact"),
+    )
     parser.add_argument("--max-markings", type=int, default=2)
     parser.add_argument(
-        "--t-powers", type=int, nargs="+", default=(2, 1, 0, -1, -2)
+        "--t-powers", type=int, nargs="+", default=(0, -1, -2)
     )
     parser.add_argument("--laurent-precision", type=int, default=8)
     parser.add_argument("--no-unit-relatives", action="store_true")
+    parser.add_argument(
+        "--chow-relations", action="store_true",
+        help=("add under-dimensioned probes, using only Laurent "
+              "coefficients of nonpositive residual Chow dimension"),
+    )
+    parser.add_argument(
+        "--max-chow-unit-insertions", type=int, default=1,
+        help="largest number of unit markings in a Chow probe",
+    )
+    parser.add_argument(
+        "--primary-chow-relations-only", action="store_true",
+        help="use primary under-dimensioned Chow probes only",
+    )
+    parser.add_argument(
+        "--additional-probe-ambient-degrees", type=int, nargs="*", default=(),
+        help=("extra ambient probe degrees; nonmultiples of three have zero "
+              "compact side (the genus-one assembly is regression-tested "
+              "through ambient degree three)"),
+    )
+    parser.add_argument(
+        "--no-punctured-axioms", action="store_true",
+        help="disable the CJR contact-minus-one string/divisor/dilaton rows",
+    )
+    parser.add_argument(
+        "--max-unit-insertions", type=int, default=1,
+        help="largest number of reducible unit insertions in a mixed probe",
+    )
     parser.add_argument("--checkpoint-in")
     parser.add_argument("--checkpoint-out")
+    parser.add_argument(
+        "--zero-vertex-cache",
+        help="persistent SQLite (recommended) or JSON O(3) zero-vertex cache",
+    )
+    parser.add_argument(
+        "--hodge-cache",
+        help="shared SQLite cache for exact Hodge integrals",
+    )
+    parser.add_argument(
+        "--zero-vertex-strategy",
+        choices=("localization", "hybrid", "givental"),
+        default="localization",
+        help=("Givental uses the calibrated quantum connection; hybrid keeps "
+              "localization as an unsupported-geometry fallback"),
+    )
     parser.add_argument("--json", action="store_true")
     arguments = parser.parse_args()
 
     if len(arguments.insertions) != len(arguments.contacts):
         parser.error(
             "provide one ambient insertion power for every contact"
+        )
+    if arguments.contact_psi is not None \
+            and len(arguments.contact_psi) != len(arguments.contacts):
+        parser.error(
+            "provide one contact-psi power for every contact"
         )
 
     target = EffectiveVertex(
@@ -794,16 +1148,41 @@ def _main():
         tuple(arguments.contacts),
         psi_min=arguments.psi_min,
         insertions=tuple(arguments.insertions),
+        contact_psi=(
+            tuple(arguments.contact_psi)
+            if arguments.contact_psi is not None else tuple()
+        ),
     )
     if not target.is_balanced():
         parser.error("the requested plane-cubic infinity vertex is not balanced")
+    if not target.is_dimension_zero():
+        parser.error(
+            "the requested infinity invariant violates reduced virtual dimension; "
+            "expected psi_min + sum(insertions) + sum(contact_psi) = %s"
+            % target.reduced_virtual_dimension
+        )
     provider = PlaneCubicFullEquationProvider(
-        laurent_precision=arguments.laurent_precision
+        laurent_precision=arguments.laurent_precision,
+        zero_vertex_cache=arguments.zero_vertex_cache,
+        autosave_zero_vertices=arguments.zero_vertex_cache is not None,
+        hodge_cache=arguments.hodge_cache,
+        zero_vertex_strategy=arguments.zero_vertex_strategy,
     )
     config = InfinityOrchestrationConfig(
         max_markings=arguments.max_markings,
         t_powers=tuple(arguments.t_powers),
         include_unit_relatives=not arguments.no_unit_relatives,
+        include_chow_relations=arguments.chow_relations,
+        max_chow_unit_insertions=arguments.max_chow_unit_insertions,
+        chow_primary_only=arguments.primary_chow_relations_only,
+        additional_probe_ambient_degrees=(
+            arguments.additional_probe_ambient_degrees
+        ),
+        include_punctured_axioms=not arguments.no_punctured_axioms,
+        max_unit_insertions=(
+            0 if arguments.no_unit_relatives
+            else arguments.max_unit_insertions
+        ),
         max_genus=arguments.genus,
         max_ambient_degree=arguments.ambient_degree,
     )

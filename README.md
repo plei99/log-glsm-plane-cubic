@@ -19,6 +19,31 @@ sage cjr_full_equation_provider.sage --max-degree 8
 
 For a step-by-step guide to aggregate and contact-resolved infinity vertices,
 see [Computing infinity vertices](docs/COMPUTING_INFINITY_VERTICES.md).
+The paper-to-code formula cross-check and exact support boundary are recorded
+in [Correctness audit](docs/CORRECTNESS_AUDIT.md).
+
+### Audited scope
+
+The contact-resolved pipeline implements CJR's compact-sector hypersurface
+specialization for connected, globally stable data.  It now rejects the
+exceptional unmarked constant genus-one type `(g,n,d)=(1,0,0)` before graph
+enumeration or known-value lookup.  Positive degrees stored by `ProbeSpec`
+and `EffectiveVertex` are always ambient `P^2` degrees; only the
+Bloch--Okounkov series converts a multiple of three to intrinsic elliptic
+degree.
+
+There are two exact but different descendant workflows.  A `log` probe uses
+CJR III (8.21).  A `stabilized` probe pulls an ordinary stable-map cotangent
+class through `st`; contracted marked tails then produce `contact_psi`.
+The numerical stabilization-boundary comparison of CJR I, equation (1.10),
+now transfers known stabilized cubic descendants to separate `log` probes;
+it does not identify the two line classes.  This is the descendant workflow
+used by `effective_basis_only=True`.
+For the effective-invariant basis of Theorem 10.1, use
+`effective_basis_only=True`, which permits only evaluation insertions and
+`psi_min` at infinity.  A blocked rank report means that the chosen CJR
+relations do not determine the requested basic effective invariant; the code
+does not assign a conjectural value.
 
 `elliptic_cubic_gw.py` computes the connected, unmarked, positive-degree
 genus-one Gromov-Witten invariants of a smooth cubic
@@ -129,6 +154,44 @@ F_1(Q)=-\sum_{r\ge1}\log(1-Q^{3r}).
 The program reports both the reduced log-GLSM coefficient (including the
 sign above) and the recovered GW invariant.
 
+### Descendant convention
+
+There are two different psi classes in this calculation. CJR III inserts the
+cotangent line on the coarse log-GLSM universal curve before the stabilization
+map `st`. Bloch--Okounkov computes the ordinary stable-map descendant after
+stabilization. These classes differ when `st` contracts a marked zero tail.
+Equation (9.7) identifies the pushed-forward virtual cycles, but it does not
+identify those two pre-push-forward descendant insertions.
+
+For compact zero-sector probes, CJR I's virtual comparison supplies the
+missing boundary correction at the level of numerical invariants.  The code
+implements this in `StabilizationBoundaryComparison`: it evaluates a
+stabilized copy with Bloch--Okounkov, while compiling the original probe with
+`psi_convention="log"`.  Hence CJR (8.21), rather than `contact_psi`, appears
+on the graph side.  Reports retain both probe records so this transfer is
+auditable and cannot be confused with equality of cotangent classes.
+
+For example, the effective-basis equation associated to the known
+genus-three one-point descendant is obtained by
+
+```sage
+load("cjr_full_equation_provider.sage")
+
+provider = PlaneCubicFullEquationProvider()
+stabilized = ProbeSpec.stationary(3, 0, (4,))
+relation = provider.boundary_compared_relation(stabilized)
+```
+
+Here `relation.probe.psi_convention == "log"`, its known side is
+`-31/967680`, and every infinity factor has `contact_psi=()`.
+
+The code records this distinction as `ProbeSpec.psi_convention` and implements
+both cases. On a stable zero component the two restrictions agree. On an
+unstable marked zero tail of contact `c`, the log-domain class contributes
+`3H/c-t`, while the pullback of the stable-map class becomes the ordinary
+cotangent line at the adjacent infinity contact. `EffectiveVertex.contact_psi`
+records those powers. Primary probes are unchanged.
+
 ## Genus two from log-GLSM localization
 
 For an infinity vertex of genus $h\leq2$ and ambient plane degree $D$,
@@ -233,9 +296,9 @@ The balance equation also enumerates the allowed degree-zero profiles. The
 basic genus-one profile is `(-1)`. At genus two, the primitive profiles begin
 with `(-3)` and `(-2,-2)` (with possible additional `-1` contacts). The
 one-point resummed equation determines their aggregate primitive contribution
-$b_4$. The full R-equivariant compiler provides independent rows that
-separate them by combining different Laurent coefficients with stationary,
-string, and dilaton probes; see
+$b_4$. The full R-equivariant compiler keeps these profiles separate.
+Both the constant Bloch--Okounkov rows and the nonconstant Laurent rows now
+use the stabilization-corrected contact-descendant state space; see
 [`docs/COMPUTING_INFINITY_VERTICES.md`](docs/COMPUTING_INFINITY_VERTICES.md).
 
 ### Dynamic programming for general infinity vertices
@@ -244,13 +307,14 @@ string, and dilaton probes; see
 general reconstruction. An unknown is indexed by
 
 \[
-(g,D,\mathbf c,k,\boldsymbol\alpha),
+(g,D,\mathbf c,k,\boldsymbol\alpha,\mathbf b),
 \]
 
 where $D$ is ambient degree, $\mathbf c$ is the negative contact profile,
-$k$ is the power of $\psi_{\min}$, and $\boldsymbol\alpha$ records evaluation
-insertions. Keeping only $(g,n,D)$ is insufficient because different contact
-profiles and cohomology insertions can mix in one localization equation.
+$k$ is the power of $\psi_{\min}$, $\boldsymbol\alpha$ records evaluation
+insertions, and $\mathbf b$ records ordinary cotangent powers at the contact
+markings. Keeping only $(g,n,D)$ is insufficient because different contact
+profiles, cohomology insertions, and descendants can mix in one equation.
 
 For each requested vertex, an equation provider must construct a probe
 correlator and enumerate the finite CJR graph sum in the form
@@ -282,22 +346,248 @@ demo = genus_two_bo_demo(8)
 print(demo["values"])
 ```
 
-The full O(3)-twisted descendant classes and gluing pairings are now attached
-to the enumerated graphs. `log_glsm_infinity_orchestrator.sage` constructs a
-finite dependency closure, expands stationary/string/dilaton probe families,
-selects exact full-rank blocks, back-substitutes solved values, and
-checkpoints the extracted relations. A compiled string/dilaton block gives
-an exact determinant-9 witness separating the first genus-two contact
-sectors. Infinite computing power addresses fixed-graph growth, but not a
-genuinely rank-deficient probe matrix; blocked runs report the exact kernel.
+The full O(3)-twisted descendant classes and gluing pairings are attached to
+the enumerated graphs. `log_glsm_infinity_orchestrator.sage` constructs a
+finite dependency closure, expands stabilization-corrected probe families,
+selects exact full-rank blocks, back-substitutes solved values, and checkpoints
+the extracted relations. The former determinant-9 witness is still withdrawn:
+although its psi convention is now fixed, its old matrix omitted the new
+contact-descendant columns. Infinite computing power addresses fixed-graph
+growth, but not a genuinely rank-deficient probe matrix; blocked runs report
+the exact kernel.
 
-For example, the contact-resolved genus-one base vertex is computed by
+There is a second, mathematically different use of string and dilaton. The
+module `cjr_punctured_axioms.sage` implements the unit-removal axioms of
+[Chen--Janda--Ruan, *Punctured logarithmic R-maps*](https://arxiv.org/abs/2208.04519)
+for the *punctured infinity vertices themselves*. In the plane-cubic theory
+the unit sector has contact `-1`, and
+
+\[
+\psi_{\mathrm{DF}}=c_1(\mathcal O(-\infty))=-3H.
+\]
+
+Writing \(V^{(k)}_{\mathbf c}(\alpha_1,\ldots,\alpha_n)\) for an effective
+vertex with `psi_min=k`, the implemented scalar forms are
+
+\[
+\begin{aligned}
+V^{(k)}_{\mathbf c\cup(-1)}(\boldsymbol\alpha,1)
+ &=\sum_j |c_j|\sum_{a=0}^{k-1}
+ V^{(k-1-a)}_{\mathbf c}
+ (\alpha_1,\ldots,\alpha_j(-3H)^a,\ldots,\alpha_n),\\
+V^{(k)}_{\mathbf c\cup(-1)}(\boldsymbol\alpha,H)
+ &=D V^{(k)}_{\mathbf c}(\boldsymbol\alpha)
+ +\sum_j |c_j|\sum_{a=0}^{k-1}
+ V^{(k-1-a)}_{\mathbf c}
+ (\alpha_1,\ldots,\alpha_jH(-3H)^a,\ldots,\alpha_n),\\
+V^{(k+1)}_{\mathbf c\cup(-1)}(\boldsymbol\alpha,1)
+ &+3V^{(k)}_{\mathbf c\cup(-1)}(\boldsymbol\alpha,H)
+ =(2g-2+n)V^{(k)}_{\mathbf c}(\boldsymbol\alpha).
+\end{aligned}
+\]
+
+The first two are CJR equations (8.3) and (8.4); the third is their dilaton
+combination, Corollary 8.3. The empty sum at `k=0` gives the fundamental-class
+vanishing for a unit insertion, while the divisor equation becomes
+`V(...,H)=D*V(...)`. Terms containing \(H^3\) are discarded. The provider also
+loads CJR's genus-zero vanishing, genus-one emptiness away from degree zero
+with all contacts `-1`, and the two base values
+
+\[
+V^{(0)}_{1,0,(-1)}(H)=0,\qquad
+V^{(1)}_{1,0,(-1)}(1)=\frac18.
+\]
+
+These punctured axioms are enabled by default and are applied before expensive
+compact probes. Use `--no-punctured-axioms` only for a legacy localization-row
+comparison. Product relations for disconnected infinity contributions are
+already represented by graph monomials. No splitting axiom is invented: CJR
+explicitly leaves such a formula to future work.
+
+For example, the contact-resolved genus-one base vertex is now returned
+directly from the CJR genus-one formula by
 
 ```bash
 sage log_glsm_infinity_orchestrator.sage \
   --genus 1 --contacts=-1 --insertions 1 \
   --max-markings 1 --t-powers 0 --no-unit-relatives
 ```
+
+This prints `0`. Replacing `--psi-min 0 --insertions 1` by
+`--psi-min 1 --insertions 0` prints `1/8`.
+
+### All genus-three infinity vertices
+
+`genus_three_infinity_vertices.sage` enumerates the complete genus-three
+target family and drives one shared orchestration over it. Genus three is the
+first genus in which the balance equation
+
+\[
+3D-(2g-2)=\sum_i(c_i+1),\qquad c_i\leq-1,
+\]
+
+permits a positive infinity degree: it forces \(3D\leq 2g-2\), so
+\(D=0\) for \(g\leq2\) but \(D\in\{0,1\}\) for \(g=3\). The degree-zero sector
+has contact excess \(4\) and the new degree-one sector has contact excess
+\(1\):
+
+```text
+D=0:  (-5), (-5,-1), (-4,-2), (-3,-3), (-5,-1,-1), (-4,-2,-1), ...
+D=1:  (-2), (-2,-1), (-2,-1,-1), ...
+```
+
+Because a contact \(c=-1\) contributes \(c+1=0\), the family is infinite
+without a truncation; `--max-valence` bounds it. Within a fixed valence the
+enumeration is exactly the set of vertices the graph compiler can emit:
+insertions run over \(\{1,H,H^2\}\), and reduced virtual dimension selects
+the unique nonnegative power
+
+\[
+\psi_{\min}=\operatorname{valence}+3D-\sum_i\operatorname{codim}(\alpha_i).
+\]
+
+Assignments with a negative required power vanish. `--max-psi-min` discards
+targets above the requested cap; it does not replace the required power by a
+smaller one.
+
+```bash
+sage genus_three_infinity_vertices.sage --list-only --max-valence 2
+sage genus_three_infinity_vertices.sage \
+  --max-infinity-degree 0 --max-valence 1 --max-psi-min 0 \
+  --max-markings 1 --effective-basis-only \
+  --max-chow-unit-insertions 0 \
+  --t-powers 0 -1 -2 -3 -4 -5 -6 \
+  --zero-vertex-cache genus3-o3-zero-vertices.sqlite \
+  --hodge-cache genus3-o3-hodge.sqlite \
+  --time-budget 600 \
+  --checkpoint-out genus3-degree-zero.json
+```
+
+The provider tracks the ordinary Chow dimension of every Laurent
+coefficient. If a probe has residual dimension `delta`, its `t^k`
+coefficient has dimension `delta+k`: it is a zero-cycle when this is zero,
+is a forced-vanishing numerical row when it is negative, and remains a Chow
+class requiring an additional test class when it is positive. Thus extending
+`--t-powers` adds scalar rows only after this grading check.
+`--max-unit-insertions 2` adds canonical mixed unit/point probes
+whose compact invariants are reduced to stationary theory by repeated string
+and dilaton equations. This compact probe depth is independent of the
+punctured contact-`-1` axioms, which are applied automatically at every stage.
+Unit depth is staged (`0`, then `1`, then `2`) so a smaller family is always
+attempted first.
+
+For the hypersurface reconstruction of Section 9.3 and Theorem 10.1, use
+`--effective-basis-only`.  This mode combines primary Chow probes with
+stationary log-domain probes whose known sides are supplied by the CJR-I
+stabilization-boundary comparison.  It rejects a compiled row if any infinity
+factor contains an ordinary cotangent class at a contact.  Its infinity
+unknowns are therefore exactly evaluation insertions and powers of
+`psi_min`, as in (10.1).  The broader direct stabilized-descendant mode is
+retained as a diagnostic compiler.
+
+The ambient log-GLSM problem exists in every plane degree, and the compact
+hypersurface side is zero when that degree is not divisible by three. Extra
+probe degrees can be requested with `--additional-probe-ambient-degrees`.
+The genus-one rows in ambient degrees one, two, and three are exact regression
+checks: after substituting the CJR genus-one infinity theory, their complete
+sums are `0`, `0`, and `-1`. The exact solved-relation check remains enabled
+for every larger run.
+
+All targets share a single `InfinityVertexOrchestrator`, so the common
+genus-one and genus-two closure and the compiled probe relations are built
+once rather than once per target. Unsolved targets are reported as
+`UNDETERMINED` alongside the exact frontier; no value is ever assigned by a
+tie-break.
+
+This is a driver, not a new mathematical shortcut. Historical profiling on
+2026-08-07 preceded the exact infinity virtual-dimension filter and therefore
+overcounted the closure by treating dimension-incompatible insertions as
+independent unknowns. Those old rank and nullity figures are not mathematical
+statements about the corrected system. In particular, for the one-contact
+degree-zero vertex `(g,D,c)=(3,0,-5)` with `psi_min=0`, only the `H` insertion
+survives; the `1` and `H^2` variants are pruned before orchestration.
+
+A corrected Chow-graded retry gives the target linear incidence. The
+primary point probe has defect four, so `t^-4` is its first numerical
+coefficient and contains
+`(-625/72) V(3,0,(-5); psi_min=0,H)`. The complete row has 50 infinity terms;
+retaining all of them removes the former genus-one contradiction.
+
+The clean effective-basis run through primary two-marking probes in ambient
+degrees zero, one, and two is saved as
+`results/genus3/effective-basis-d2-m2.json`.  It compiles 1259 relations,
+activates 1205, and proves 349 values.  The final target component has rank
+278 on 343 columns.  In the computed kernel basis, exactly one of its 65
+directions moves
+`V(3,0,(-5);psi_min=0,H)`; that direction has support on 18 effective
+invariants, all with empty `contact_psi`.  Thus the current obstruction is a
+basic effective-invariant direction, not a missing ordinary-contact-psi
+backend.  This also reflects the direction of Theorem 10.1: it computes
+hypersurface GW invariants *in terms of* effective invariants; it does not
+claim that localization alone determines every effective invariant.  Negative
+Laurent coefficients provide additional relations, as noted in Remark 10.7,
+but a rank computation must decide whether they determine a chosen basic
+invariant.
+
+Coefficients with `delta+k>0` are still genuine positive-dimensional Chow
+classes. The numerical backend rejects them and reports the missing test-class
+codimension; arbitrary tautological pairings remain a future extension.
+
+Positive infinity degree remains harder, but positive ambient probe degrees
+are now usable. The former genus-one contradiction was a truncation bug: an
+equivariant O(3) Euler class may supply powers of `t`, so stable zero-side
+flag descendants must be bounded by the ordinary ambient stable-map virtual
+dimension, not the dimension after subtracting the Euler rank. Work degree
+zero first and checkpoint it, then add ambient degrees one through three. A
+time budget is checked between stages and solve blocks; it cannot interrupt
+one graph compilation or one admcycles integral.
+Omit `--full-kernel` for large runs: the default compact frontier records exact
+rank and nullity without spending minutes printing huge kernel vectors.
+
+The expensive individual zero vertices now have a second, independent
+checkpoint. Precompute them once and reuse them in every orchestration:
+
+```bash
+sage o3_zero_vertex_precompute.sage \
+  --genus 3 --ambient-degree 1 --max-point-markings 1 \
+  --cache genus3-o3-zero-vertices.sqlite \
+  --hodge-cache genus3-o3-hodge.sqlite --time-budget 3600
+```
+
+Every completed exact value is committed separately. SQLite is recommended:
+it uses WAL mode, permits multiple deterministic shards to share the same
+zero-vertex and Hodge-integral stores, and avoids rewriting the whole cache.
+The older JSON format remains readable when the cache name ends in `.json`.
+The equation provider evaluates fixed loci along the nonresonant path
+`(0,epsilon,epsilon^2)` and sets `epsilon=0` only after the complete
+fixed-locus sum. A linear ray such as `epsilon*(0,1,3)` makes two flag weights
+cancel at a degree-three nodal locus. Setting the three weights to fixed
+distinct numbers is also not the nonequivariant limit while the R-weight `t`
+remains. To keep cache conventions distinct, passing `foo.sqlite` as
+`--zero-vertex-cache` uses
+`foo.weights-nonequivariant-quadratic.sqlite`; the precompute command applies
+the same derivation, so pass the same base cache name to both commands.
+Insertion scales and provenance labels are factored out of persistent keys,
+marking permutations are canonicalized, and psi profiles are sorted before
+admcycles; for the one-mark `(3,1,3)` probe this reduced the request inventory
+from 1,510 to 625 distinct zero vertices. Request discovery is separately
+stored in `CACHE.inventory.json`, so a resumed precompute does not repeat
+graph enumeration.
+
+Degree-zero requests use the direct constant-map model
+`Mbar_(g,n)(P2,0) = Mbar_(g,n) x P2` in every genus. Before admcycles, the
+Hodge backend applies Mumford's relations through genus three, the lambda-g
+theorem, and the closed top-Hodge-triple formula (with string/dilaton
+descendants). On the development machine, the unmarked twisted `(g,d)=(3,0)`
+request fell from more than five minutes in an admcycles multiplication to
+about 0.07 seconds; the direct formula agreed with the three fixed-locus sum.
+
+A Go prototype makes the isolated zero-type classifier about 18.2x faster,
+but cProfile assigns that function only 27% of the `(3,0,3)` enumeration.
+That predicts roughly a 1.34x end-to-end graph-enumeration improvement, while
+it does not accelerate admcycles. The benchmark and reproducible profiler are
+in [`benchmarks/`](benchmarks/README.md); a wholesale rewrite is therefore not
+the current bottleneck-removal strategy.
 
 A staged implementation plan, including component interfaces and completion
 criteria, is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
@@ -309,24 +599,35 @@ modules:
   conversion, exact equivariant rings, dimensions, signs, and truncations;
 - `cjr_graph_factors.sage`: edge, unstable-zero, diagonal, stable-flag, and
   infinity-descendant factors with `H_infinity=3H`;
-- `hodge_integrals.sage`: all-genus DVV psi intersections, the lambda-g
-  theorem, and arbitrary lambda/psi monomials through vendored `admcycles`;
+- `hodge_integrals.sage`: all-genus DVV psi intersections, the lambda-g and
+  top-Hodge-triple formulas, low-genus Mumford reductions, a concurrent exact
+  SQLite cache, and arbitrary remaining lambda/psi monomials through vendored
+  `admcycles`;
 - `o3_twisted_plane_vertices.sage`: request objects, the lightweight partial
   backend, twisted I-function restrictions, and resummed stationary blocks;
 - `o3_fixed_locus_graphs.sage`: full decorated stable-map fixed graphs on
   `P^2`, internal automorphisms and deck groups, tautological expansions, and
-  the complete `FullTwistedZeroVertexBackend`;
+  the complete `FullTwistedZeroVertexBackend` with a persistent exact cache;
+- `givental_teleman.sage`: truncated R-matrices and the unit-preserving
+  Givental stable-graph action with exact DVV vertex integrals;
+- `o3_givental_teleman.sage`: the degree-zero QRR initial condition, calibrated
+  positive-q quantum connection, R- and S-matrices, and hybrid backend;
+- `o3_zero_vertex_precompute.sage`: request inventory, resumable batch
+  evaluation, and cache prepopulation for expensive twisted zero vertices;
 - `cjr_graph_contributions.sage`: auditable per-graph compilation into
   contact-resolved `EffectiveVertex` polynomials;
-- `elliptic_probe_values.sage`: Bloch--Okounkov values with string and dilaton
-  reduction;
-- `cjr_probe_factory.sage`: exact diagonal matrices, pivot selection, and
-  kernel reporting;
+- `cjr_infinity_chow.sage`: residual Chow-degree tracking and the numerical
+  projection guard for zero-cycle and forced-vanishing Laurent rows;
+- `elliptic_probe_values.sage`: stabilized Bloch--Okounkov values with string
+  and dilaton reduction, plus guards against use as CJR log-psi values;
+- `cjr_probe_factory.sage`: incremental exact row-echelon screening, diagonal
+  matrices, pivot selection, and kernel reporting;
 - `cjr_full_equation_provider.sage`: coefficient extraction, field-valued DP,
-  reports, contact-profile rank witnesses, and the genus-two end-to-end
-  command;
+  convention-safe reports, and the aggregate genus-two end-to-end command;
 - `log_glsm_infinity_orchestrator.sage`: finite dependency closure, staged
-  probe expansion, exact block solving, frontier reports, and checkpoints.
+  probe expansion, exact block solving, frontier reports, and checkpoints;
+- `genus_three_infinity_vertices.sage`: positive-degree balance enumeration,
+  the complete genus-three target family, and a shared orchestration driver.
 
 Run the aggregate genus-two computation with
 
@@ -416,9 +717,79 @@ Explicit choices are available as
 `TwistedInsertion.point_supported_at(i)`. The planner preserves explicit
 lifts. Use `lift_strategy="standard"` to disable automatic sparsification.
 
+### Givental--Teleman backend
+
+The second backend is implemented without replacing localization. The generic
+engine applies
+
+\[
+R^{-1}(\psi),\qquad
+\frac{\eta^{-1}-R^{-1}(\psi')\eta^{-1}R^{-1}(\psi'')^T}
+     {\psi'+\psi''},\qquad
+T(z)=z(1-R^{-1}(z)1)
+\]
+
+to legs, edges, and translation markings of every stable graph. Its vertices
+are semisimple TFT vertices, so their integrals are pure psi intersections
+rather than stable-map or admcycles calculations.
+
+At degree zero, the three auxiliary fixed points give an exact semisimple
+algebra with
+
+\[
+\eta_i=\frac{t-3\lambda_i}
+{\prod_{j\ne i}(\lambda_i-\lambda_j)}.
+\]
+
+Mumford GRR determines its diagonal R-matrix. The implementation agrees with
+the localization backend in genera zero, one, and two. The raw Picard--Fuchs
+principal symbol is retained as a diagnostic by Hensel lifting the roots of
+
+\[
+\prod_i(p-\lambda_i)=q(t-3p)^3.
+\]
+
+Its residue pairing varies with (q), so the code does not mistake this raw
+symbol for flat Frobenius data. The production calibration instead computes
+the exact small quantum product in the flat basis (1,H,H^2) from genus-zero
+three-point twisted invariants. After q-adic diagonalization, it solves
+
+\[
+[P,R_{k+1}]=D R_k+A R_k-R_k B,
+\qquad D=q\frac{d}{dq},
+\]
+
+where (P) is multiplication by (H), (A=E^{-1}DE), and
+(B=\frac12\operatorname{diag}(D\log\eta_i)). The diagonal integration
+constants are fixed by the degree-zero quantum-Riemann--Roch matrix.
+
+Teleman reconstructs ancestors. Stable-map descendants are recovered from
+
+\[
+D S_{m+1}=C_H S_m-S_m C_H(0),\qquad S_0=1,
+\quad
+\tau_k(\gamma)=\sum_{m=0}^k\bar\tau_{k-m}(S_m\gamma).
+\]
+
+Primary and descendant positive-degree coefficients are checked exactly
+against virtual localization in degrees one and two. Use the calibrated path
+with:
+
+```bash
+sage genus_three_infinity_vertices.sage \
+  --max-infinity-degree 0 --max-valence 1 \
+  --zero-vertex-strategy hybrid --time-budget 600
+```
+
+`--zero-vertex-strategy givental` uses the calibrated reconstruction directly.
+`hybrid` uses it where supported and keeps localization as a fallback. The
+default remains `localization` while larger positive-degree workloads are
+profiled.
+
 Run the focused checks with
 
 ```bash
+DOT_SAGE=/tmp/codex-sage sage test_givental_teleman.sage
 DOT_SAGE=/tmp/codex-sage sage test_hodge_integrals.sage
 DOT_SAGE=/tmp/codex-sage sage test_o3_fixed_locus_graphs.sage
 DOT_SAGE=/tmp/codex-sage sage test_cjr_graph_contributions.sage
@@ -451,6 +822,52 @@ conservative bound
 \[
 |V(\Gamma)|\leq 4g+2n+d-1.
 \]
+
+That bound is very loose — genus-two graphs never exceed four zero vertices
+while it permits ten — so the search is organized to avoid paying for it.
+
+*Incidence matrices are generated up to relabeling of the zero vertices.*
+Row `z` of the matrix records how many edges join zero vertex `z` to each
+infinity vertex, and `_canonical_incidence_matrices` emits rows in
+non-increasing `(sum, row)` order, one representative per orbit. This loses
+no isomorphism class: the permutation sorting an arbitrary matrix's rows can
+be applied to that graph's genus, degree, and marking decorations too, and
+every decoration of every emitted matrix is enumerated. Each row sum is
+positive, since a zero vertex with no incident edge would disconnect a
+mixed-level graph.
+
+*The contact budget is checked before contacts are assigned.* Contacts at an
+infinity vertex sum to `2g-2+val-3d`; every edge contributes at least one and
+an edge meeting a nonspecial zero vertex contributes at least two. Testing
+that necessary condition in `_contact_budget_available` discards
+configurations whose budget can never balance, instead of building each of
+their contact assignments first.
+
+*Inner-loop decorations are reused.* Zero-vertex types are computed from one
+pass over edge and marking valences instead of constructing a provisional
+graph for every decoration. Degree compositions are cached by vertex count,
+and the graph compiler shares one enumerated family across every probe with
+the same `(g,n,d)`. The O(3)-twisted backend likewise shares internal `P^2`
+fixed-locus graphs when only insertion coefficients change.
+
+Both reductions are exact. `test_cjr_bipartite_graphs.sage` cross-checks the
+canonical generator against the brute-force labeled search, and the resulting
+isomorphism classes, automorphism orders, and infinity dependencies are
+unchanged. Measured:
+
+| `(g,n,d)` | before | after |
+|---|---|---|
+| (2,1,0) | 2.5 s | 0.02 s |
+| (2,0,3) | 32.7 s | 0.31 s |
+| (2,2,0) | 129.5 s | 0.24 s |
+| (2,3,0) | ~1.4 h (projected) | 5.5 s |
+| (3,1,0) | ~1.2 d (projected) | 0.34 s |
+| (3,2,0) | ~95 d (projected) | 3.31 s |
+| (3,0,3) | not measured | 6.17 s |
+| (3,1,3) | >5 min | 115.58 s |
+
+Genus three is therefore reachable: `(3,0,0)` has 32 classes, `(3,1,0)` has
+85, and `(3,2,0)` has 300.
 
 One-level exceptional graphs are checked separately. Run, for example,
 

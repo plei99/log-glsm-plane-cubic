@@ -4,6 +4,11 @@ load("cjr_bipartite_graphs.sage")
 
 
 def run_tests():
+    # A constant genus-one connected stable-map probe needs a special point.
+    # The global guard runs before CJR's vertex classification, which is
+    # stated only inside globally X-stable data.
+    assert PlaneCubicGraphEnumerator(1, 0, 0).graphs() == tuple()
+
     assert list(_weak_compositions(3, 2)) == [
         (0, 3), (1, 2), (2, 1), (3, 0)
     ]
@@ -131,5 +136,135 @@ def run_tests():
     ]
 
 
+def _brute_force_endpoint_multigraphs(zero_count, infinity_count, edge_count):
+    """The pre-canonicalization search: every labeled endpoint multigraph."""
+    cell_count = zero_count * infinity_count
+    for multiplicities in _weak_compositions(edge_count, cell_count):
+        pairs = []
+        for flat_index, multiplicity in enumerate(multiplicities):
+            zero = flat_index // infinity_count
+            infinity = flat_index % infinity_count
+            pairs.extend([(zero, infinity)] * multiplicity)
+        if _connected_bipartite(zero_count, infinity_count, pairs):
+            yield tuple(pairs)
+
+
+def test_canonical_incidence_matrices_lose_no_orbit():
+    r"""Row canonicalization must keep one representative of every orbit.
+
+    The generator emits incidence matrices only up to relabeling of the zero
+    vertices.  Sorting each brute-force matrix's rows must land exactly on
+    the emitted set, which is what makes the reduction lossless once every
+    decoration is enumerated downstream.
+    """
+    for zero_count in range(1, 5):
+        for infinity_count in range(1, 3):
+            for edge_count in range(1, 6):
+                enumerator = PlaneCubicGraphEnumerator(2, 0, 0)
+                emitted = set(enumerator._canonical_incidence_matrices(
+                    zero_count, infinity_count, edge_count
+                ))
+                # Every emitted matrix is in canonical order.
+                for matrix in emitted:
+                    keys = [(sum(row), row) for row in matrix]
+                    assert keys == sorted(keys, reverse=True)
+                    assert all(sum(row) >= 1 for row in matrix)
+
+                brute = set()
+                for pairs in _brute_force_endpoint_multigraphs(
+                        zero_count, infinity_count, edge_count):
+                    matrix = [[0] * infinity_count
+                              for _ in range(zero_count)]
+                    for zero, infinity in pairs:
+                        matrix[zero][infinity] += 1
+                    rows = [tuple(Integer(x) for x in row) for row in matrix]
+                    rows.sort(key=lambda row: (sum(row), row), reverse=True)
+                    brute.add(tuple(rows))
+                # A disconnected brute-force matrix is never emitted, and the
+                # emitted set applies its own connectivity filter later, so
+                # compare on the connected orbits only.
+                assert brute.issubset(emitted), (
+                    zero_count, infinity_count, edge_count,
+                    sorted(brute - emitted),
+                )
+
+
+def test_fast_zero_vertex_types_match_graph_classification():
+    """The inner-loop classifier must exactly match the public graph API."""
+    examples = (
+        ((0,), (0,), ((0, 0),), ()),
+        ((0,), (0,), ((0, 0),), (0,)),
+        ((0,), (0,), ((0, 0), (0, 0)), ()),
+        ((0,), (0,), ((0, 0),), (0, 0)),
+        ((1,), (0,), ((0, 0),), ()),
+        ((0,), (2,), ((0, 0),), ()),
+        ((0, 0, 1), (0, 0, 0),
+         ((0, 0), (1, 0), (1, 0), (2, 0)), (0,)),
+    )
+    for zero_genera, zero_degrees, pairs, marking_vertices in examples:
+        fast = PlaneCubicGraphEnumerator._zero_vertex_types(
+            zero_genera, zero_degrees, pairs, marking_vertices
+        )
+        graph = BipartiteLocalizationGraph(
+            zero_genera, zero_degrees, (3,), (0,), marking_vertices,
+            tuple((zero, infinity, 1) for zero, infinity in pairs),
+        )
+        public = tuple(
+            graph.zero_vertex_type(zero)
+            for zero in range(graph.zero_count)
+        )
+        assert fast == public, (fast, public)
+
+
+def test_canonical_marking_decorations():
+    """Interchangeable zero vertices use restricted-growth assignments."""
+    equivalent = tuple(
+        PlaneCubicGraphEnumerator._canonical_marking_decorations(
+            2, (0, 0), (0, 0), ((0, 0), (1, 0))
+        )
+    )
+    assert equivalent == ((0, 0), (0, 1))
+
+    distinguished = tuple(
+        PlaneCubicGraphEnumerator._canonical_marking_decorations(
+            2, (0, 1), (0, 0), ((0, 0), (1, 0))
+        )
+    )
+    assert set(distinguished) == {(0, 0), (0, 1), (1, 0), (1, 1)}
+
+
+def test_genus_three_enumeration():
+    """Genus three is reachable and exposes the positive-degree sector."""
+    unmarked = enumerate_plane_cubic_graphs(3, 0, 0)
+    assert len(unmarked) == 32
+    assert all(graph.is_valid() for graph in unmarked)
+    assert len({graph.canonical_key() for graph in unmarked}) == 32
+
+    marked = enumerate_plane_cubic_graphs(3, 1, 0)
+    assert len(marked) == 85
+    assert all(graph.is_valid() for graph in marked)
+    assert len({graph.canonical_key() for graph in marked}) == 85
+
+    dependencies = sorted(set(
+        data for graph in marked
+        for data in graph.all_infinity_vertex_data()
+    ))
+    # Genus three is the first genus admitting a positive infinity degree,
+    # but a degree-zero probe cannot carry one: 3*D <= 2g-2 needs the degree
+    # to come from somewhere.
+    assert all(degree == 0 for _, degree, _ in dependencies)
+    genus_three = [item for item in dependencies if item[0] == 3]
+    assert (3, 0, (-5,)) in genus_three
+    assert (3, 0, (-4, -2)) in genus_three
+    assert (3, 0, (-3, -3)) in genus_three
+    # Every occurring profile satisfies the balance equation.
+    for genus, degree, contacts in dependencies:
+        assert 3 * degree - (2 * genus - 2) == sum(c + 1 for c in contacts)
+
+
 run_tests()
+test_canonical_incidence_matrices_lose_no_orbit()
+test_fast_zero_vertex_types_match_graph_classification()
+test_canonical_marking_decorations()
+test_genus_three_enumeration()
 print("all CJR bipartite-graph enumerator tests passed")

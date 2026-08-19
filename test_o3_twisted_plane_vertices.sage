@@ -38,6 +38,33 @@ def run_tests():
     assert backend.evaluate(unsupported) == QQ(1)/24
     assert backend.provenance(unsupported) == "test value"
 
+    labelled = TwistedZeroVertexRequest(0, 0, (
+        TwistedInsertion(1, label="edge_0"),
+        TwistedInsertion(1, label="ordinary"),
+        TwistedInsertion(0, label="edge_1"),
+    ))
+    relabelled = TwistedZeroVertexRequest(0, 0, (
+        TwistedInsertion(1, label="edge_7"),
+        TwistedInsertion(1, label="renamed"),
+        TwistedInsertion(0, label="edge_9"),
+    ))
+    assert labelled == relabelled
+    assert TwistedZeroVertexRequest.from_record(
+        labelled.to_record()
+    ) == labelled
+    scaled = TwistedZeroVertexRequest(0, 0, (
+        TwistedInsertion(1, scale=QQ(2) / 3),
+        TwistedInsertion(0, scale=5),
+        TwistedInsertion(1),
+    ))
+    factor, normalized = scaled.normalized_scales()
+    assert factor == QQ(10) / 3
+    assert all(item.scale == 1 for item in normalized.insertions)
+    collector = CollectingTwistedZeroVertexBackend(rings)
+    collector.evaluate(labelled)
+    collector.evaluate(relabelled)
+    assert collector.requests == (labelled,)
+
     i_backend = O3TwistedIBackend()
     assert i_backend.restriction(0, 0) == 1
     degree_one = i_backend.restriction(0, 1)

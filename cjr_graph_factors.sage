@@ -99,6 +99,7 @@ class PlaneCubicGraphFactors(SageObject):
     def __init__(self, rings=None):
         self.rings = rings or PlaneCubicCoefficientRing()
         self.t = self.rings.t
+        self._infinity_descendant_coefficients = {}
 
     def w(self):
         """Return ``t-H_infinity=t-3H`` in the hyperplane basis of ``P^2``."""
@@ -203,7 +204,13 @@ class PlaneCubicGraphFactors(SageObject):
         psi_min_power = ZZ(psi_min_power)
         if psi_min_power < 0:
             raise ValueError("psi_min power must be nonnegative")
-        return self.rings.full((-1) ** (psi_min_power + 1) * self.t ** (-psi_min_power))
+        if psi_min_power not in self._infinity_descendant_coefficients:
+            self._infinity_descendant_coefficients[psi_min_power] = \
+                self.rings.full(
+                    (-1) ** (psi_min_power + 1)
+                    * self.t ** (-psi_min_power)
+                )
+        return self._infinity_descendant_coefficients[psi_min_power]
 
     def nonspecial_edge_pair(self, contact):
         """Multiply an edge by its nonspecial unstable zero leaf."""

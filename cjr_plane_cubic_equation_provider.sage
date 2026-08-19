@@ -75,14 +75,29 @@ def primitive_o3_twisted_block(genus, max_degree):
 
 
 def basic_minus_two_vertex(genus, ambient_degree=0):
-    r"""Return the CJR basic plane-cubic vertex with only contact ``-2``.
+    r"""Return the all-contact-``-2`` plane-cubic vertex.
 
     Balance forces the number of punctures to be
 
         n_2 = 2g-2-3D.
 
-    This is the plane-cubic analogue of the basic effective vertices used in
-    CJR III, Lemma 10.12.
+    This is an *analogue* of the basic effective vertices of CJR III,
+    Lemma 10.12, and not an instance of them.  CJR II, Definition 9.19, admits
+    a basic effective invariant only for ``g>=2`` and only when
+
+        (3 - dim X + rk E)*(g-1) - int_beta c_1(K_X (x) det E) = 0.
+
+    For ``X=P^2`` and ``E=O(3)`` the bundle ``K_X (x) det E`` is trivial, so
+    the integral vanishes for every ``beta`` and the left side is ``2(g-1)``,
+    which is zero only at ``g=1`` -- excluded by that definition.  Assumption
+    9.22, needed by Corollary 9.24 to determine effective invariants from basic
+    ones, likewise requires ``2(g-1)<=0`` and fails for every ``g>=2``.  The
+    controlling quantity is ``3-dim Z``, which vanishes for the Calabi--Yau
+    threefolds the theory targets but equals ``2`` for an elliptic curve.
+
+    The vertex returned here is therefore a bookkeeping device.  Its star
+    coefficient ``1/n_2!`` is confirmed independently by the graph compiler,
+    but it carries none of the determination properties of Definition 9.19.
     """
     genus = ZZ(genus)
     ambient_degree = ZZ(ambient_degree)

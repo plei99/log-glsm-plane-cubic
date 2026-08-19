@@ -8,6 +8,9 @@ import sys
 load("cjr_graph_contributions.sage")
 load("elliptic_probe_values.sage")
 load("cjr_probe_factory.sage")
+load("cjr_infinity_chow.sage")
+load("cjr_stabilization_boundary.sage")
+load("o3_givental_teleman.sage")
 
 
 class PlaneCubicFullEquationProvider(SageObject):
@@ -16,18 +19,79 @@ class PlaneCubicFullEquationProvider(SageObject):
     Stable zero vertices are computed by full base-torus localization with
     admcycles integration.  A partial injected backend remains supported for
     diagnostics and externally registered exact values.
+
+    The graph compiler supports both CJR's log-domain marking psi classes and
+    stabilization pullbacks of ordinary GW psi classes.  The latter transfer
+    descendants on contracted marked zero tails to contact descendants on the
+    adjacent infinity vertex, so ``EllipticProbeValueBackend`` supplies their
+    exact compact side.  In the effective basis, the CJR-I virtual
+    stabilization-boundary comparison instead supplies that same known
+    number to a distinct log-domain probe, leaving only ``psi_min``
+    descendants at infinity.
     """
 
     def __init__(self, rings=None, twisted_backend=None,
-                 known_backend=None, laurent_precision=16):
+                 known_backend=None, chow_backend=None, laurent_precision=16,
+                 stabilization_comparison=None,
+                 zero_vertex_cache=None, autosave_zero_vertices=False,
+                 hodge_cache=None, zero_vertex_strategy="localization",
+                 base_weight_specialization="nonequivariant"):
         self.rings = rings or PlaneCubicCoefficientRing(laurent_precision)
-        self.twisted_backend = twisted_backend or FullTwistedZeroVertexBackend(
-            self.rings
-        )
+        if base_weight_specialization == "nonequivariant":
+            self.base_weight_specialization = "nonequivariant"
+        elif isinstance(base_weight_specialization, str):
+            raise ValueError(
+                "base weights must be 'nonequivariant', None, or a triple"
+            )
+        elif base_weight_specialization is None:
+            self.base_weight_specialization = None
+        else:
+            self.base_weight_specialization = tuple(
+                QQ(value) for value in base_weight_specialization
+            )
+        self.zero_vertex_strategy = str(zero_vertex_strategy)
+        if self.zero_vertex_strategy not in (
+                "localization", "hybrid", "givental"):
+            raise ValueError(
+                "zero_vertex_strategy must be localization, hybrid, or givental"
+            )
+        if hodge_cache is None and zero_vertex_cache is not None:
+            hodge_cache = str(zero_vertex_cache) + ".hodge.sqlite"
+        if twisted_backend is not None:
+            self.twisted_backend = twisted_backend
+        else:
+            localization_cache = zero_vertex_cache
+            if localization_cache is not None \
+                    and self.base_weight_specialization is not None:
+                localization_cache = specialized_zero_vertex_cache_path(
+                    localization_cache, self.base_weight_specialization
+                )
+            localization = FullTwistedZeroVertexBackend(
+                self.rings, cache_path=localization_cache,
+                autosave=autosave_zero_vertices,
+                hodge_cache_path=hodge_cache,
+                base_weight_specialization=self.base_weight_specialization,
+            )
+            if self.zero_vertex_strategy == "localization":
+                self.twisted_backend = localization
+            else:
+                calibrated = O3CalibratedGiventalBackend(self.rings)
+            if self.zero_vertex_strategy == "hybrid":
+                self.twisted_backend = HybridTwistedZeroVertexBackend(
+                    localization, calibrated,
+                )
+            elif self.zero_vertex_strategy == "givental":
+                self.twisted_backend = calibrated
         self.compiler = PlaneCubicGraphContributionCompiler(
-            self.rings, self.twisted_backend
+            self.rings, self.twisted_backend,
+            base_weight_specialization=self.base_weight_specialization,
         )
         self.known_backend = known_backend or EllipticProbeValueBackend()
+        self.stabilization_comparison = (
+            stabilization_comparison
+            or StabilizationBoundaryComparison(self.known_backend)
+        )
+        self.chow_backend = chow_backend or CJRInfinityChowBackend()
         self._compilations = {}
         self._relations = {}
         self._assignments = {}
@@ -38,7 +102,14 @@ class PlaneCubicFullEquationProvider(SageObject):
         return self._compilations[probe]
 
     def relation(self, probe, t_power=0, require_complete=True):
-        key = probe, ZZ(t_power)
+        t_power = ZZ(t_power)
+        chow_degree = self.chow_backend.require_scalar(probe, t_power)
+        if t_power == 0 and not probe.is_dimension_zero():
+            raise UnsupportedGeometryError(
+                "a t^0 under-dimensioned probe is a positive-dimensional "
+                "compact Chow class, not a numerical invariant"
+            )
+        key = probe, t_power
         if key in self._relations:
             relation = self._relations[key]
             if require_complete and not relation.is_complete:
@@ -52,8 +123,16 @@ class PlaneCubicFullEquationProvider(SageObject):
             compilation, t_power, self.rings.laurent_precision
         )
         constant = extracted.pop(tuple(), self.rings.base_field.zero())
-        known = self.known_backend.reduced_log_glsm_value(probe) \
-            if ZZ(t_power) == 0 else QQ.zero()
+        if t_power != 0:
+            known = QQ.zero()
+        elif probe.has_descendants and probe.psi_convention == "log":
+            # CJR I's virtual comparison includes the stabilization-boundary
+            # correction.  Compile the graph with the log-domain psi class,
+            # but evaluate its compact side using the corresponding
+            # stabilized hypersurface descendant.
+            known = self.stabilization_comparison.reduced_value(probe)
+        else:
+            known = self.known_backend.reduced_log_glsm_value(probe)
         relation = CompiledLocalizationRelation(
             probe, t_power, self.rings.base_field,
             known_gw=known,
@@ -64,6 +143,23 @@ class PlaneCubicFullEquationProvider(SageObject):
         )
         self._relations[key] = relation
         return relation
+
+    def boundary_compared_relation(self, stabilized_probe, t_power=0,
+                                   require_complete=True):
+        r"""Compile a known stabilized descendant in the effective basis.
+
+        The returned relation is deliberately keyed by the corresponding
+        log-domain probe.  Its known side is the stabilized cubic invariant,
+        transferred by CJR I (1.10), while its graph side uses CJR III
+        (8.21) and therefore has no ordinary contact descendants.
+        """
+        log_probe = self.stabilization_comparison.log_probe(
+            stabilized_probe
+        )
+        return self.relation(
+            log_probe, t_power=t_power,
+            require_complete=require_complete,
+        )
 
     def assign_probe(self, target, probe, t_power=0):
         if not isinstance(target, EffectiveVertex):
@@ -85,30 +181,71 @@ class PlaneCubicFullEquationProvider(SageObject):
 
     def candidate_relations(self, genus, ambient_degree, max_markings=4,
                             t_powers=(0,), require_complete=False,
-                            include_unit_relatives=False):
+                            include_unit_relatives=False,
+                            max_unit_insertions=1,
+                            include_chow_relations=False,
+                            max_chow_unit_insertions=1,
+                            chow_primary_only=False,
+                            effective_basis_only=False):
         factory = ProbeFactory(self.rings.base_field)
-        stationary = factory.stationary_candidates(
-            genus, ambient_degree, max_markings=max_markings
-        )
-        probes = list(stationary)
+        if effective_basis_only and (
+                not include_chow_relations or not chow_primary_only
+                or include_unit_relatives):
+            raise ValueError(
+                "effective-basis-only probes require primary Chow relations "
+                "alongside log stationary rows, without unit relatives"
+            )
+        # CJR Theorem 10.1 uses log-domain descendants on the zero side.  The
+        # stabilization-boundary comparison supplies their known compact
+        # values, while (8.21) ensures that no ordinary contact descendant is
+        # introduced at infinity.  The broader diagnostic path continues to
+        # localize the stabilized class directly.
+        probes = list(factory.stationary_candidates(
+            genus, ambient_degree, max_markings=max_markings,
+            psi_convention=("log" if effective_basis_only else "stabilized"),
+        ))
         if include_unit_relatives:
-            for probe in stationary:
-                probes.extend(factory.unit_relatives(probe))
+            probes.extend(factory.mixed_unit_candidates(
+                genus, ambient_degree,
+                max_point_markings=max_markings,
+                max_unit_insertions=max_unit_insertions,
+            ))
+        if include_chow_relations:
+            probes.extend(factory.chow_candidates(
+                genus, ambient_degree,
+                max_markings=max_markings,
+                max_unit_insertions=max_chow_unit_insertions,
+                primary_only=chow_primary_only,
+            ))
         relations = []
         for probe in probes:
-            for t_power in t_powers:
-                relations.append(self.relation(
-                    probe, t_power, require_complete=require_complete
-                ))
+            for t_power in self.chow_backend.scalar_powers(
+                    probe, t_powers):
+                relation = self.relation(
+                    probe, t_power,
+                    require_complete=require_complete,
+                )
+                if effective_basis_only and any(
+                        factor.contact_psi
+                        for _, factors in relation.terms
+                        for factor in factors):
+                    raise UnsupportedGeometryError(
+                        "an effective-basis probe emitted an ordinary "
+                        "contact cotangent descendant"
+                    )
+                relations.append(relation)
         return tuple(relations)
 
     def relation_report(self, probe, t_power=0, require_complete=False):
         relation = self.relation(
             probe, t_power, require_complete=require_complete
         )
-        return {
+        report = {
             "probe": str(probe),
             "t_power": int(t_power),
+            "chow_degree": self.chow_backend.degree(
+                probe, t_power
+            ).to_record(),
             "complete": relation.is_complete,
             "known_gw": str(relation.known_gw),
             "twisted_zero_level": str(relation.twisted_zero_level),
@@ -121,62 +258,26 @@ class PlaneCubicFullEquationProvider(SageObject):
             ],
             "compilation": relation.compilation.report(),
         }
-
-
-def _linear_vertex_coefficient(relation, target):
-    """Collect the coefficient of the one-factor monomial ``target``."""
-    return relation.coefficient_field(sum(
-        coefficient
-        for coefficient, factors in relation.terms
-        if factors == (target,)
-    ))
+        if probe.has_descendants and probe.psi_convention == "log":
+            report["stabilization_boundary_comparison"] = (
+                self.stabilization_comparison.comparison_record(probe)
+            )
+        return report
 
 
 def genus_two_profile_split_rank_witness(provider=None):
-    r"""Compile an exact rank witness separating genus-two contact sectors.
+    r"""The old witness must be rebuilt in the enlarged descendant basis.
 
-    The string and dilaton relatives of ``<tau_2(pt)>_2`` give independent
-    rows on a contact-resolved ``(-3,-1)``/``(-2,-2)`` pair.  This is one
-    block in the descending-Laurent reconstruction that ultimately separates
-    the primitive ``(-3)`` and ``(-2,-2)`` contributions.
-
-    This calculation compiles two 28-graph probes and can take several
-    minutes.  It returns the provider as well as the exact relations so the
-    caller can continue constructing the full dependency closure.
+    Stabilization pullback is now compiled correctly, but it produces ordinary
+    cotangent powers at infinity contact markings.  The former two-column
+    witness omitted those columns, so quoting its determinant would still be
+    invalid.  Use ``candidate_relations`` and exact rank selection on the full
+    emitted support instead.
     """
-    provider = provider or PlaneCubicFullEquationProvider(
-        laurent_precision=8
+    raise UnsupportedGeometryError(
+        "the former genus-two profile-split matrix omitted contact-descendant "
+        "infinity vertices; rebuild the witness on the full emitted support"
     )
-    factory = ProbeFactory(provider.rings.base_field)
-    one_point = ProbeSpec.stationary(2, 0, (2,))
-    string_probe, dilaton_probe = factory.unit_relatives(one_point)
-    relations = (
-        provider.relation(string_probe, t_power=0),
-        provider.relation(dilaton_probe, t_power=0),
-    )
-    targets = (
-        EffectiveVertex(
-            2, 0, (-3, -1), psi_min=0, insertions=(0, 2)
-        ),
-        EffectiveVertex(
-            2, 0, (-2, -2), psi_min=0, insertions=(1, 1)
-        ),
-    )
-    rows = tuple(
-        tuple(_linear_vertex_coefficient(relation, target)
-              for target in targets)
-        for relation in relations
-    )
-    matrix = Matrix(provider.rings.base_field, rows)
-    return {
-        "provider": provider,
-        "probes": (string_probe, dilaton_probe),
-        "relations": relations,
-        "targets": targets,
-        "matrix": matrix,
-        "determinant": matrix.det(),
-        "full_rank": matrix.rank() == len(targets),
-    }
 
 
 def genus_two_profile_split_report(provider=None):
@@ -257,7 +358,10 @@ def _main():
     )
     arguments = parser.parse_args()
     if arguments.profile_split_rank:
-        report = genus_two_profile_split_report()
+        try:
+            report = genus_two_profile_split_report()
+        except UnsupportedGeometryError as error:
+            parser.error(str(error))
         if arguments.json:
             print(json.dumps(report, indent=2, sort_keys=True))
             return

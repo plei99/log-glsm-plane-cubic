@@ -15,6 +15,39 @@ def run_tests():
     assert positive_degree.is_balanced()
     assert EffectiveVertex(2, 1, (-1,), label="impossible").balance_defect() > 0
 
+    dimension_one = EffectiveVertex(
+        3, 0, (-5,), psi_min=0, insertions=(1,)
+    )
+    too_small = EffectiveVertex(
+        3, 0, (-5,), psi_min=0, insertions=(0,)
+    )
+    too_large = EffectiveVertex(
+        3, 0, (-5,), psi_min=0, insertions=(2,)
+    )
+    assert dimension_one.reduced_virtual_dimension == 1
+    assert dimension_one.insertion_codimension == 1
+    assert dimension_one.is_dimension_zero()
+    assert too_small.dimension_defect() == 1
+    assert too_large.dimension_defect() == -1
+
+    contact_descendant = EffectiveVertex(
+        2, 0, (-1, -2, -2), psi_min=0,
+        insertions=(1, 0, 0), contact_psi=(2, 0, 0),
+    )
+    assert contact_descendant.contacts == (-2, -2, -1)
+    assert contact_descendant.insertions == (0, 0, 1)
+    assert contact_descendant.contact_psi == (0, 0, 2)
+    assert contact_descendant.insertion_codimension == 3
+    assert contact_descendant.is_dimension_zero()
+    assert EffectiveVertex.from_record(contact_descendant.to_record()) \
+        == contact_descendant
+    assert EffectiveVertex(
+        2, 0, (-2, -2, -1), psi_min=2,
+        insertions=(0, 0, 1), contact_psi=(0, 0, 0),
+    ) == EffectiveVertex(
+        2, 0, (-2, -2, -1), psi_min=2, insertions=(0, 0, 1)
+    )
+
     demo = genus_two_bo_demo(4)
     b2 = demo["genus_one_vertex"]
     b4 = demo["genus_two_vertex"]

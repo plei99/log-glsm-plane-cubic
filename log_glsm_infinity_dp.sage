@@ -22,6 +22,7 @@ diagonal.  A proposed probe must still have a nonzero target coefficient, or
 a full-rank same-level block of probes must be supplied.
 """
 
+load("log_glsm_conventions.sage")
 load("log_glsm_infinity_vertices.sage")
 
 
@@ -29,13 +30,45 @@ class EffectiveVertex:
     """Hashable discrete data for a punctured infinity invariant."""
 
     def __init__(self, genus, ambient_degree, contacts, psi_min=0,
-                 insertions=(), label=""):
+                 insertions=(), label="", contact_psi=()):
         self.genus = ZZ(genus)
         self.ambient_degree = ZZ(ambient_degree)
-        self.contacts = tuple(sorted(ZZ(c) for c in contacts))
         self.psi_min = ZZ(psi_min)
-        self.insertions = tuple(ZZ(insertion) for insertion in insertions)
         self.label = str(label)
+
+        contacts = tuple(ZZ(contact) for contact in contacts)
+        insertions = tuple(ZZ(insertion) for insertion in insertions)
+        contact_psi = tuple(ZZ(power) for power in contact_psi)
+        if insertions and len(insertions) != len(contacts):
+            raise ValueError(
+                "insertions must be empty or have one entry per contact"
+            )
+        if contact_psi and len(contact_psi) != len(contacts):
+            raise ValueError(
+                "contact_psi must be empty or have one entry per contact"
+            )
+
+        # A contact, its evaluation insertion, and its ordinary cotangent
+        # power are decorations of the same puncture.  Canonicalize the
+        # triples together so repeated contact orders never scramble their
+        # descendants during hashing, checkpointing, or graph collection.
+        decorated = tuple(sorted(
+            (
+                contact,
+                insertions[index] if insertions else ZZ.zero(),
+                contact_psi[index] if contact_psi else ZZ.zero(),
+            )
+            for index, contact in enumerate(contacts)
+        ))
+        self.contacts = tuple(item[0] for item in decorated)
+        self.insertions = (
+            tuple(item[1] for item in decorated) if insertions else tuple()
+        )
+        decorated_contact_psi = tuple(item[2] for item in decorated)
+        self.contact_psi = (
+            decorated_contact_psi
+            if contact_psi and any(decorated_contact_psi) else tuple()
+        )
 
         if self.genus < 0:
             raise ValueError("genus must be nonnegative")
@@ -45,6 +78,8 @@ class EffectiveVertex:
             raise ValueError("psi_min must be nonnegative")
         if any(c >= 0 for c in self.contacts):
             raise ValueError("infinity contacts must be strictly negative")
+        if any(power < 0 for power in self.contact_psi):
+            raise ValueError("contact cotangent powers must be nonnegative")
 
     def signature(self):
         return (
@@ -53,6 +88,7 @@ class EffectiveVertex:
             self.contacts,
             self.psi_min,
             self.insertions,
+            self.contact_psi,
             self.label,
         )
 
@@ -66,10 +102,12 @@ class EffectiveVertex:
         suffix = ", label=%r" % self.label if self.label else ""
         insertion_suffix = ", insertions=%r" % (self.insertions,) \
             if self.insertions else ""
+        contact_psi_suffix = ", contact_psi=%r" % (self.contact_psi,) \
+            if self.contact_psi else ""
         return (
-            "EffectiveVertex(g=%s, D=%s, contacts=%s, psi_min=%s%s%s)"
+            "EffectiveVertex(g=%s, D=%s, contacts=%s, psi_min=%s%s%s%s)"
             % (self.genus, self.ambient_degree, self.contacts, self.psi_min,
-               insertion_suffix, suffix)
+               insertion_suffix, contact_psi_suffix, suffix)
         )
 
     def to_record(self):
@@ -80,6 +118,7 @@ class EffectiveVertex:
             "contacts": [int(value) for value in self.contacts],
             "psi_min": int(self.psi_min),
             "insertions": [int(value) for value in self.insertions],
+            "contact_psi": [int(value) for value in self.contact_psi],
             "label": self.label,
         }
 
@@ -89,6 +128,7 @@ class EffectiveVertex:
             record["genus"], record["ambient_degree"], record["contacts"],
             psi_min=record.get("psi_min", 0),
             insertions=tuple(record.get("insertions", ())),
+            contact_psi=tuple(record.get("contact_psi", ())),
             label=record.get("label", ""),
         )
 
@@ -109,6 +149,25 @@ class EffectiveVertex:
     def is_balanced(self, hypersurface_degree=3):
         return self.balance_defect(hypersurface_degree) == 0
 
+    @property
+    def reduced_virtual_dimension(self):
+        """Complex dimension of the reduced plane-cubic infinity cycle."""
+        return PlaneCubicDimension.infinity_reduced_virtual_dimension(
+            self.genus, self.ambient_degree, self.contacts
+        )
+
+    @property
+    def insertion_codimension(self):
+        """Codimension of ``psi_min``, evaluations, and contact descendants."""
+        return self.psi_min + sum(self.insertions) + sum(self.contact_psi)
+
+    def dimension_defect(self):
+        """Remaining dimension after all insertions; zero gives a number."""
+        return self.reduced_virtual_dimension - self.insertion_codimension
+
+    def is_dimension_zero(self):
+        return self.dimension_defect() == 0
+
     def order_key(self):
         r"""Default well-founded candidate order for triangular recursion.
 
@@ -123,6 +182,7 @@ class EffectiveVertex:
             len(self.contacts),
             self.psi_min,
             self.insertions,
+            self.contact_psi,
             self.contacts,
             self.label,
         )
