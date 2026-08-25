@@ -324,5 +324,39 @@ def run_tests():
     assert field_solver.solve(x) == 1
 
 
+def test_chow_family_covers_the_unmarked_probe():
+    r"""The zero-marking probe must stay in the graded Chow family.
+
+    ``stationary_candidates`` deliberately starts at one marking, because a
+    zero-marking probe has no dimension-zero stationary value.  Its scalar
+    rows live at ``t^(-(2g-2))`` and are supplied by ``chow_candidates``;
+    this test pins that coverage so a refactor cannot silently drop the
+    unmarked rows again.
+    """
+    factory = ProbeFactory(QQ)
+    chow = CJRInfinityChowBackend()
+    for genus in (2, 3):
+        candidates = factory.chow_candidates(
+            genus, 0, max_markings=1, primary_only=True
+        )
+        unmarked = [probe for probe in candidates
+                    if probe.marking_count == 0]
+        assert len(unmarked) == 1, candidates
+        probe = unmarked[0]
+        defect = probe.dimension_defect()
+        assert defect == 2 * genus - 2
+        powers = chow.scalar_powers(
+            probe, tuple(range(0, -defect - 2, -1))
+        )
+        assert powers == tuple(range(-defect, -defect - 2, -1)), powers
+    # Genus one has no stable unmarked probe: defect zero means the t^0
+    # coefficient is the honest stationary value, handled elsewhere.
+    genus_one = factory.chow_candidates(1, 0, max_markings=1,
+                                        primary_only=True)
+    assert all(probe.marking_count >= 1 or probe.dimension_defect() > 0
+               for probe in genus_one)
+
+
 run_tests()
+test_chow_family_covers_the_unmarked_probe()
 print("all full CJR equation-provider tests passed")

@@ -1208,3 +1208,52 @@ must not be quoted as the Theorem 10.1 hypersurface reconstruction.
 All version-8 checkpoints predate the boundary-comparison rows and are
 rejected by the version-9 orchestrator.  Their zero-vertex and Hodge caches
 remain reusable.
+
+The compiled *relations* inside a version-8 checkpoint are also reusable:
+each record is an exact statement independent of the stage bookkeeping that
+version 9 distrusts.  `import_legacy_relations` (CLI:
+`--import-v8-relations PATH`) loads them as candidate rows, keeping only
+
+- complete records passing the Chow scalar gate (residual dimension `<= 0`;
+  positive-dimensional coefficients were the historical genus-one
+  contradiction), and
+- genuine localization rows -- axiom pseudo-probes (labels containing
+  `remove=`) are skipped because the version-9 axiom provider regenerates
+  them exactly.
+
+No solver values, vertices, or stage completions are imported.  On
+`effective-basis-d2-m2.json` this recovers the 72 Chow-scalar rows and skips
+the 1187 regenerable axiom rows.
+
+### Wall-clock budgets
+
+`InfinityVertexOrchestrator.run(time_budget=...)` (CLI: `--time-budget`)
+checks the clock between solved blocks, so a run overshoots by at most one
+exact block solve rather than one stage.  A budgeted run stops with
+checkpointable state and `timed_out=True` in its report; earlier drivers ran
+a three-hour budget past seven hours because the check lived only between
+stages.
+
+### Row-selection filters
+
+`ProbeFactory.select_relations` accepts `row_filter`:
+
+- `"exact"` (default) -- incremental echelon elimination over the exact
+  coefficient field;
+- `"certified"` -- specialization certificates for acceptance with exact
+  fallback, mathematically equivalent to `"exact"`;
+- `"fast"` -- additionally rejects ambiguous rows on specialization
+  evidence; accepted rows stay certified, so full-rank selections remain
+  sound, while deficient ones carry `rejections_certified=False` and must
+  not be quoted as certified kernels.
+
+Measured on the genus-three frontier component (343 targets, 576 rows):
+exact 1.5s, fast 4.3s, certified 5.7s, all reporting rank 278.  The exact
+filter wins there because most candidate rows carry small coefficients and
+specializing every entry costs more than eliminating it; the certified
+filters exist for row families whose entries reach the tens-of-thousands of
+digits where fraction-field elimination enters the integer-FFT range.  The
+sound-specialization protocol (per-point invariants, rebuild on breach) is
+what makes the certified filters exact; see
+`test_cjr_probe_factory.sage` for the pole-coefficient counterexample that
+defeats naive one-point filtering.

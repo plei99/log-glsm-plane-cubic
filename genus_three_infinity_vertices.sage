@@ -1,5 +1,10 @@
 r"""Compute every genus-three log-GLSM infinity vertex in a finite truncation.
 
+Despite the module name, the driver is genus-generic: ``--genus`` (default 3)
+selects the family, and the enumeration, probe rounding, and orchestration
+below make no genus-three assumption.  The `(4,1,0)` graph family already
+enumerates in minutes, so genus four runs are configuration, not new code.
+
 Genus three is the first genus in which the CJR hypersurface balancing
 equation
 

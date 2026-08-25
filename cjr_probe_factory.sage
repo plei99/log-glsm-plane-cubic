@@ -84,7 +84,8 @@ class ProbeBlockSelection(SageObject):
     """Independent relation rows selected for a same-rank target block."""
 
     def __init__(self, targets, relations, rows, coefficient_field,
-                 rejected=()):
+                 rejected=(), rows_independent=False,
+                 rejections_certified=True):
         self.targets = tuple(targets)
         self.relations = tuple(relations)
         self.rows = tuple(tuple(coefficient_field(value) for value in row)
@@ -95,6 +96,16 @@ class ProbeBlockSelection(SageObject):
             coefficient_field, 0, len(self.targets)
         )
         self._rank_cache = None
+        # ``select_relations`` only ever appends rows its incremental basis
+        # proved independent, so the exact fraction-field rank recomputation
+        # can be skipped for selections built there.
+        if rows_independent:
+            self._rank_cache = ZZ(len(self.rows))
+        # False when a fast selection rejected rows on specialization
+        # evidence alone; such a selection must not be quoted as a certified
+        # rank deficiency.  Full-rank selections are certified either way,
+        # because acceptance always carries an exact certificate.
+        self.rejections_certified = bool(rejections_certified)
 
     @property
     def rank(self):
@@ -123,7 +134,8 @@ class ExactIncrementalRowBasis(SageObject):
     def rank(self):
         return ZZ(len(self._rows))
 
-    def add(self, row):
+    def _reduce(self, row):
+        """Return the reduction of ``row`` and its pivot, without inserting."""
         if len(row) != self.column_count:
             raise ValueError("incremental row has the wrong column count")
         vector = [self.coefficient_field(value) for value in row]
@@ -135,6 +147,14 @@ class ExactIncrementalRowBasis(SageObject):
         pivot = next(
             (column for column, value in enumerate(vector) if value), None
         )
+        return vector, pivot
+
+    def residue_is_nonzero(self, row):
+        """Test independence against the basis without mutating it."""
+        return self._reduce(row)[1] is not None
+
+    def add(self, row):
+        vector, pivot = self._reduce(row)
         if pivot is None:
             return False
         leading = vector[pivot]
@@ -145,7 +165,211 @@ class ExactIncrementalRowBasis(SageObject):
         return True
 
 
+class CertifiedIncrementalRowBasis(SageObject):
+    r"""Row-independence filter that certifies accepts by specialization.
+
+    Exact echelon elimination over ``QQ(lambda0,lambda1,lambda2)`` dominated
+    large orchestration runs: coefficients grow into tens of thousands of
+    digits and integer multiplication enters the FFT range.  Specializing the
+    auxiliary weights to rational numbers makes elimination cheap, but naive
+    filtering is unsound in both directions, because a dependence whose
+    coefficients have poles at the point need not specialize.
+
+    The sound protocol maintains, per specialization point, the invariant
+    that every *accepted* row specializes there and the specialized rows are
+    linearly independent.  Under that invariant, dependence coefficients are
+    ratios of minors that are regular and nonvanishing at the point, so exact
+    dependence would survive specialization.  Hence:
+
+    * a row whose specialization is independent of the specialized accepted
+      rows is **certainly** exactly independent -- accepted cheaply;
+    * a row whose specialization reduces to zero at every maintained point is
+      ambiguous.  With ``certify_rejections=True`` (default) it is decided by
+      exact elimination, reproducing the fully exact behavior.  With
+      ``certify_rejections=False`` it is rejected on the specialization
+      evidence alone and the basis records ``rejections_certified=False``;
+      accepted rows remain certified either way.
+
+    Whenever an exact decision accepts a row that no point certified, every
+    maintained point has lost its invariant and is rebuilt at fresh points.
+    If the coefficient field does not support rational specialization, or
+    rebuilding fails repeatedly, the filter degrades to pure exact
+    elimination.
+    """
+
+    def __init__(self, coefficient_field, column_count,
+                 certify_rejections=True, specialization_points=None,
+                 view_count=2, max_rebuild_attempts=8):
+        self.coefficient_field = coefficient_field
+        self.column_count = ZZ(column_count)
+        self.certify_rejections = bool(certify_rejections)
+        self.rejections_certified = True
+        self._accepted = []
+        self._exact = None
+        self._exact_synced = 0
+        self._max_rebuild_attempts = int(max_rebuild_attempts)
+        self._specializer = self._build_specializer(coefficient_field)
+        if specialization_points is not None:
+            self._points = iter(specialization_points)
+        else:
+            self._points = self._default_points()
+        self._views = []
+        if self._specializer is not None:
+            for _ in range(int(view_count)):
+                view = self._fresh_view()
+                if view is None:
+                    self._views = []
+                    self._specializer = None
+                    break
+                self._views.append(view)
+
+    @property
+    def rank(self):
+        return ZZ(len(self._accepted))
+
+    @staticmethod
+    def _build_specializer(field):
+        """Return ``(specialize(value, point), arity)`` or ``None``."""
+        try:
+            gens = field.gens()
+            arity = len(gens)
+            if arity == 0:
+                return None
+
+            def specialize(value, point):
+                numerator = value.numerator()
+                denominator = value.denominator()
+                if arity == 1:
+                    top = numerator(point[0])
+                    bottom = denominator(point[0])
+                else:
+                    top = numerator(*point)
+                    bottom = denominator(*point)
+                bottom = QQ(bottom)
+                if not bottom:
+                    raise ZeroDivisionError
+                return QQ(top) / bottom
+
+            # Trial run: the field must actually specialize to QQ, and the
+            # generators must be genuine variables rather than constants.
+            trial = tuple(QQ(index + 2) for index in range(arity))
+            for generator in gens:
+                image = specialize(field(generator), trial)
+                if image != trial[gens.index(generator)]:
+                    return None
+            specialize(field.one(), trial)
+            return specialize, arity
+        except (AttributeError, TypeError, ValueError, ZeroDivisionError):
+            return None
+
+    def _default_points(self):
+        import random as _random
+        generator = _random.Random(int(20260825))
+        _, arity = self._specializer
+        while True:
+            yield tuple(QQ(generator.randint(int(2), int(10**6)))
+                        for _ in range(arity))
+
+    def _specialize_row(self, row, point):
+        specialize, _ = self._specializer
+        try:
+            return tuple(specialize(value, point) for value in row)
+        except ZeroDivisionError:
+            return None
+
+    def _fresh_view(self):
+        """Build a point whose specialized accepted rows are independent."""
+        for _ in range(self._max_rebuild_attempts):
+            try:
+                point = next(self._points)
+            except StopIteration:
+                return None
+            basis = ExactIncrementalRowBasis(QQ, self.column_count)
+            for row in self._accepted:
+                spec = self._specialize_row(row, point)
+                if spec is None or not basis.add(spec):
+                    basis = None
+                    break
+            if basis is not None:
+                return [point, basis]
+        return None
+
+    def _rebuild_views(self):
+        rebuilt = []
+        for _ in range(len(self._views) or 1):
+            view = self._fresh_view()
+            if view is None:
+                break
+            rebuilt.append(view)
+        if not rebuilt:
+            self._views = []
+            self._specializer = None
+        else:
+            self._views = rebuilt
+
+    def _sync_exact(self):
+        if self._exact is None:
+            self._exact = ExactIncrementalRowBasis(
+                self.coefficient_field, self.column_count
+            )
+            self._exact_synced = 0
+        while self._exact_synced < len(self._accepted):
+            accepted = self._exact.add(self._accepted[self._exact_synced])
+            if not accepted:
+                raise AssertionError(
+                    "certified rows must stay exactly independent"
+                )
+            self._exact_synced += 1
+
+    def _record_accept(self, row):
+        # A materialized exact basis is synchronized lazily by
+        # ``_sync_exact`` through the ``_exact_synced`` counter.
+        self._accepted.append(row)
+        broken = False
+        for view in self._views:
+            point, basis = view
+            spec = self._specialize_row(row, point)
+            if spec is None or not basis.add(spec):
+                broken = True
+                break
+        if broken:
+            self._rebuild_views()
+
+    def _decide_exactly(self, row):
+        self._sync_exact()
+        accepted = self._exact.add(row)
+        if accepted:
+            self._accepted.append(row)
+            self._exact_synced += 1
+            # No maintained point certified this row, so every invariant is
+            # broken; rebuild them all at fresh points.
+            if self._views:
+                self._rebuild_views()
+        return accepted
+
+    def add(self, row):
+        if len(row) != self.column_count:
+            raise ValueError("incremental row has the wrong column count")
+        exact_row = tuple(self.coefficient_field(value) for value in row)
+        for view in self._views:
+            point, basis = view
+            spec = self._specialize_row(exact_row, point)
+            if spec is None:
+                continue
+            if basis.residue_is_nonzero(spec):
+                self._record_accept(exact_row)
+                return True
+        if not self._views:
+            return self._decide_exactly(exact_row)
+        if not self.certify_rejections:
+            self.rejections_certified = False
+            return False
+        return self._decide_exactly(exact_row)
+
+
 class ProbeFactory(SageObject):
+
+
     """Generate stationary candidates and choose exact independent rows."""
 
     def __init__(self, coefficient_field=QQ):
@@ -378,16 +602,51 @@ class ProbeFactory(SageObject):
             unresolved, key=lambda item: item.order_key()
         ))
 
-    def select_relations(self, targets, relations, lower_values=None):
+    ROW_FILTERS = ("exact", "certified", "fast")
+
+    def select_relations(self, targets, relations, lower_values=None,
+                         row_filter="exact",
+                         specialization_points=None):
+        r"""Choose exact independent rows for a same-rank target block.
+
+        ``row_filter`` selects the independence test:
+
+        * ``"exact"`` (default): incremental echelon elimination over the
+          coefficient field.  Measured fastest on the genus-three frontier
+          component (343 targets, 576 rows: 1.5s, against 5.7s certified and
+          4.3s fast), because most candidate rows there carry small
+          coefficients and specializing every entry costs more than
+          eliminating it.
+        * ``"certified"``: specialization certificates for acceptance with
+          exact fallback for ambiguous rows.  Mathematically equivalent to
+          ``"exact"``; intended for row families whose entries are large
+          enough that fraction-field elimination enters the FFT range.
+        * ``"fast"``: like ``"certified"``, but ambiguous rows are rejected
+          on specialization evidence alone.  Accepted rows remain exactly
+          certified, so a full-rank selection is sound; a deficient one
+          carries ``rejections_certified=False`` and must not be quoted as a
+          certified kernel.
+
+        ``specialization_points`` injects deterministic points for tests.
+        """
         targets = tuple(targets)
         if not targets:
             raise ValueError("a probe block needs at least one target")
+        if row_filter not in self.ROW_FILTERS:
+            raise ValueError("unknown row filter %r" % (row_filter,))
         selected_relations = []
         selected_rows = []
         rejected = []
-        row_basis = ExactIncrementalRowBasis(
-            self.coefficient_field, len(targets)
-        )
+        if row_filter == "exact":
+            row_basis = ExactIncrementalRowBasis(
+                self.coefficient_field, len(targets)
+            )
+        else:
+            row_basis = CertifiedIncrementalRowBasis(
+                self.coefficient_field, len(targets),
+                certify_rejections=(row_filter == "certified"),
+                specialization_points=specialization_points,
+            )
         for relation in relations:
             if relation.coefficient_field is not self.coefficient_field:
                 raise TypeError("all candidate relations must use the factory field")
@@ -413,4 +672,8 @@ class ProbeFactory(SageObject):
         return ProbeBlockSelection(
             targets, selected_relations, selected_rows,
             self.coefficient_field, rejected=rejected,
+            rows_independent=True,
+            rejections_certified=getattr(
+                row_basis, "rejections_certified", True
+            ),
         )

@@ -20,6 +20,7 @@ import argparse
 import json
 import os
 import sys
+import time
 
 load("cjr_full_equation_provider.sage")
 load("cjr_punctured_axioms.sage")
@@ -269,6 +270,7 @@ class InfinityVertexOrchestrator(SageObject):
         self.current_stage = -1
         self.block_history = []
         self._last_frontier = None
+        self._timed_out = False
 
         inferred_vertices = tuple(self.vertices)
         self._max_genus = (
@@ -721,10 +723,19 @@ class InfinityVertexOrchestrator(SageObject):
         self.block_history.append(record)
         return values
 
-    def solve_until_stalled(self):
-        """Repeatedly solve every block made ready by prior substitutions."""
+    def solve_until_stalled(self, deadline=None):
+        """Repeatedly solve every block made ready by prior substitutions.
+
+        ``deadline`` is an absolute ``time.time()`` value.  It is checked
+        between blocks, so a run overshoots by at most one exact block solve
+        rather than by a whole stage; a single genus-three stage has been
+        observed to occupy a machine for hours.
+        """
         solved_blocks = 0
         for _ in range(self.config.max_solve_rounds):
+            if deadline is not None and time.time() > deadline:
+                self._timed_out = True
+                return solved_blocks
             values = self.solve_next_block()
             if values is None:
                 return solved_blocks
@@ -738,22 +749,35 @@ class InfinityVertexOrchestrator(SageObject):
     def roots_solved(self):
         return all(root in self.solver.values for root in self.roots)
 
-    def run(self):
-        """Expand probe stages until the roots solve or the schedule stalls."""
+    def run(self, time_budget=None):
+        """Expand probe stages until the roots solve or the schedule stalls.
+
+        ``time_budget`` is a wall-clock bound in seconds.  When it expires the
+        run stops cleanly after the current block, checkpointable state is
+        intact, and the report carries ``timed_out=True``.
+        """
+        deadline = None if time_budget is None \
+            else time.time() + float(time_budget)
+        self._timed_out = False
         if self.current_stage < 0 and self.axiom_provider is not None:
             changed = True
             while changed:
                 changed = self._compile_axiom_relations()
                 changed = self._activate_incident_relations() or changed
-            self.solve_until_stalled()
-        while True:
+            self.solve_until_stalled(deadline=deadline)
+        while not self._timed_out:
             if self.roots_solved():
+                break
+            if deadline is not None and time.time() > deadline:
+                self._timed_out = True
                 break
             if self.current_stage < 0:
                 if not self.advance_stage():
                     break
-            self.solve_until_stalled()
+            self.solve_until_stalled(deadline=deadline)
             if self.roots_solved():
+                break
+            if self._timed_out:
                 break
             if not self.advance_stage():
                 break
@@ -820,6 +844,7 @@ class InfinityVertexOrchestrator(SageObject):
         status = "complete" if self.roots_solved() else "blocked"
         return {
             "status": status,
+            "timed_out": bool(getattr(self, "_timed_out", False)),
             "stage": int(self.current_stage),
             "stage_count": len(self.config.stages()),
             "roots": [
@@ -901,6 +926,81 @@ class InfinityVertexOrchestrator(SageObject):
             "solver": self.solver.checkpoint(),
             "block_history": list(self.block_history),
         }
+
+    LEGACY_IMPORT_VERSIONS = (8,)
+
+    def import_legacy_relations(self, path):
+        r"""Load the still-valid relations of an older checkpoint as rows.
+
+        A version-8 checkpoint is rejected by ``restore_checkpoint`` because
+        its *stage bookkeeping* cannot be trusted: version 9 added the
+        stabilization-boundary comparison, so a v8 "completed" stage is
+        missing rows.  The individual relation records, however, are exact
+        statements independent of that bookkeeping, and re-deriving them
+        repeats hours of graph compilation.
+
+        This method imports only the subset that is still known to be sound:
+
+        * records whose ``(probe, t_power)`` passes the Chow scalar gate
+          (residual dimension ``<= 0``) -- positive-dimensional coefficients
+          were the historical genus-one contradiction and are skipped;
+        * records not already present under the current relation key; and
+        * no solver values, no vertex closure, and no stage completions.
+
+        Axiom rows (string/divisor/dilaton pseudo-probes) are also skipped:
+        their pseudo-probe dimension data does not describe a localization
+        extraction, and the version-9 axiom provider regenerates them
+        exactly.  Returns the number of imported relations.
+        """
+        with open(path) as stream:
+            checkpoint = json.load(stream)
+        if checkpoint.get("format") != self.CHECKPOINT_FORMAT:
+            raise ValueError("unrecognized checkpoint format")
+        version = checkpoint.get("version")
+        if version not in self.LEGACY_IMPORT_VERSIONS:
+            raise ValueError(
+                "legacy import supports versions %s; use restore_checkpoint "
+                "for version %s"
+                % (self.LEGACY_IMPORT_VERSIONS, self.CHECKPOINT_VERSION)
+            )
+        if checkpoint.get("coefficient_field") != str(self.coefficient_field):
+            raise ValueError("legacy checkpoint coefficient field mismatch")
+
+        chow = getattr(self.provider, "chow_backend", None) \
+            or CJRInfinityChowBackend()
+        imported = 0
+        for record in checkpoint.get("relations", ()):
+            relation = CompiledLocalizationRelation.from_record(
+                record, self.coefficient_field
+            )
+            if not relation.is_complete:
+                continue
+            if " remove=" in relation.probe.label:
+                # Axiom pseudo-probes (string/divisor/dilaton rows carry
+                # labels like "CJR 8.3 string remove=1 vertex=...").  Their
+                # pseudo-probe dimension data is not a localization
+                # extraction, and version 9 regenerates them exactly.  Rows
+                # labeled "CJR Chow probe" are genuine localization rows and
+                # must be kept.
+                continue
+            degree = chow.degree(relation.probe, relation.t_power)
+            if degree.is_class_valued:
+                continue
+            key = self._relation_key(relation)
+            if key in self.relations:
+                continue
+            if len(self.relations) >= self.config.max_relations:
+                raise OrchestrationLimitError(
+                    "relation bound %s exceeded during legacy import"
+                    % self.config.max_relations
+                )
+            self.relations[key] = relation
+            self._cache_restored_relation_in_provider(relation)
+            imported += 1
+        if imported:
+            self._activate_incident_relations()
+            self._last_frontier = None
+        return imported
 
     def restore_checkpoint(self, checkpoint):
         """Restore without recompiling relations already in the checkpoint."""
@@ -1115,6 +1215,16 @@ def _main():
     parser.add_argument("--checkpoint-in")
     parser.add_argument("--checkpoint-out")
     parser.add_argument(
+        "--time-budget", type=float, default=None,
+        help=("wall-clock seconds after which the run stops cleanly between "
+              "blocks; combine with --checkpoint-out to resume later"),
+    )
+    parser.add_argument(
+        "--import-v8-relations", metavar="PATH",
+        help=("also load the Chow-scalar relations of a version-8 checkpoint "
+              "as candidate rows, discarding its stage bookkeeping"),
+    )
+    parser.add_argument(
         "--zero-vertex-cache",
         help="persistent SQLite (recommended) or JSON O(3) zero-vertex cache",
     )
@@ -1191,7 +1301,12 @@ def _main():
     )
     if arguments.checkpoint_in:
         orchestrator.load_checkpoint(arguments.checkpoint_in)
-    report = orchestrator.run()
+    if arguments.import_v8_relations:
+        imported = orchestrator.import_legacy_relations(
+            arguments.import_v8_relations
+        )
+        print("imported %s legacy relation(s)" % imported)
+    report = orchestrator.run(time_budget=arguments.time_budget)
     if arguments.checkpoint_out:
         orchestrator.save_checkpoint(arguments.checkpoint_out)
 
@@ -1199,6 +1314,8 @@ def _main():
         print(json.dumps(report, indent=2, sort_keys=True))
         return
     print("Infinity-vertex orchestration status:", report["status"])
+    if report.get("timed_out"):
+        print("stopped early: wall-clock budget reached")
     for root in report["roots"]:
         print("target:", root["vertex"])
         print("value:", root["value"])

@@ -215,6 +215,20 @@ def test_fast_zero_vertex_types_match_graph_classification():
         )
         assert fast == public, (fast, public)
 
+        # The hoisted incidence path must agree with the recomputing path.
+        edge_valences, incident_zeros = \
+            PlaneCubicGraphEnumerator._pairs_incidence(
+                len(zero_genera), 1, pairs
+            )
+        hoisted = PlaneCubicGraphEnumerator._zero_vertex_types(
+            zero_genera, zero_degrees, pairs, marking_vertices,
+            edge_valences=edge_valences,
+        )
+        assert hoisted == public, (hoisted, public)
+        assert edge_valences == graph.zero_edge_valences()
+        assert tuple(len(zeros) for zeros in incident_zeros) == \
+            graph.infinity_edge_valences()
+
 
 def test_canonical_marking_decorations():
     """Interchangeable zero vertices use restricted-growth assignments."""

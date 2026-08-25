@@ -12,10 +12,29 @@ package is vendored in this repository, so no separate Python installation is
 needed. Run commands from the repository root:
 
 ```bash
-sage test_o3_fixed_locus_graphs.sage
-sage test_log_glsm_infinity_orchestrator.sage
+./run_tests.sh                # every regression suite, with timings
+FAST=1 ./run_tests.sh         # skip the slow localization suites
 sage cjr_full_equation_provider.sage --max-degree 8
 ```
+
+Long orchestration runs should always carry their caches and a wall-clock
+budget; running without them is the known-expensive path:
+
+```bash
+sage genus_three_infinity_vertices.sage \
+  --max-infinity-degree 0 --max-valence 1 --max-psi-min 0 \
+  --max-markings 2 --effective-basis-only \
+  --zero-vertex-cache results/genus3/zero-vertices.sqlite \
+  --hodge-cache results/genus3/hodge.sqlite \
+  --time-budget 3600 --checkpoint-out genus3.json
+```
+
+The same `--time-budget` flag now exists on
+`log_glsm_infinity_orchestrator.sage` itself; a budgeted run stops cleanly
+between blocks with checkpointable state and reports `timed_out`.  Compiled
+relations locked inside version-8 checkpoints can be recovered with
+`--import-v8-relations PATH`, which keeps only Chow-scalar localization rows
+and discards the untrustworthy v8 stage bookkeeping.
 
 For a step-by-step guide to aggregate and contact-resolved infinity vertices,
 see [Computing infinity vertices](docs/COMPUTING_INFINITY_VERTICES.md).

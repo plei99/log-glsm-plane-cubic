@@ -321,5 +321,91 @@ def run_tests():
     assert truncated_report["frontier"]["vertices_without_linear_incidence"]
 
 
+def test_time_budget_stops_between_blocks():
+    """An expired budget stops the run cleanly with resumable state."""
+    orchestrator, vertices, calls, candidates, config = synthetic_fixture(2)
+    report = orchestrator.run(time_budget=float(0))
+    assert report["timed_out"]
+    assert report["status"] == "blocked"
+    # State is intact and checkpointable; a fresh unbudgeted run finishes.
+    json.dumps(orchestrator.checkpoint())
+    resumed = orchestrator.run()
+    assert resumed["status"] == "complete"
+    assert not resumed["timed_out"]
+    a, x, y = vertices
+    assert orchestrator.solver.values[x] == QQ(8) / 5
+
+
+def _legacy_checkpoint_record():
+    """A minimal synthetic version-8 checkpoint for the import test."""
+    good_probe = ProbeSpec.stationary(1, 0, (0,), label="legacy good")
+    classy_probe = ProbeSpec.stationary(1, 0, (0,), label="legacy classy")
+    axiom_probe = ProbeSpec(
+        1, 0, (), label="CJR 8.3 string remove=0 vertex=synthetic",
+    )
+    vertex = EffectiveVertex(1, 0, (-1,), label="a")
+    good = CompiledLocalizationRelation(
+        good_probe, 0, QQ, 1, terms=((1, (vertex,)),)
+    )
+    # Positive residual Chow dimension: the historical invalid row class.
+    classy = CompiledLocalizationRelation(
+        classy_probe, 2, QQ, 0, terms=((1, (vertex,)),)
+    )
+    axiom = CompiledLocalizationRelation(
+        axiom_probe, 0, QQ, 0, terms=((1, (vertex,)),)
+    )
+    return {
+        "format": InfinityVertexOrchestrator.CHECKPOINT_FORMAT,
+        "version": int(8),
+        "coefficient_field": str(QQ),
+        "relations": [
+            good.to_record(), classy.to_record(), axiom.to_record(),
+        ],
+    }, vertex
+
+
+def test_legacy_relation_import_filters_and_activates():
+    """v8 import keeps Chow-scalar rows, drops invalid and axiom rows."""
+    import tempfile
+    orchestrator, vertices, calls, candidates, config = synthetic_fixture(2)
+    checkpoint, vertex = _legacy_checkpoint_record()
+    with tempfile.NamedTemporaryFile(
+            "w", suffix=".json", delete=False) as stream:
+        json.dump(checkpoint, stream)
+        legacy_path = stream.name
+
+    before = len(orchestrator.relations)
+    imported = orchestrator.import_legacy_relations(legacy_path)
+    assert imported == 1
+    assert len(orchestrator.relations) == before + 1
+    labels = [relation.probe.label
+              for relation in orchestrator.relations.values()]
+    assert "legacy good" in labels
+    assert "legacy classy" not in labels
+    assert not any(" remove=" in label for label in labels)
+    # Importing again is a no-op: the key already exists.
+    assert orchestrator.import_legacy_relations(legacy_path) == 0
+
+    # A modern checkpoint must be refused by the legacy path.
+    modern = dict(checkpoint)
+    modern["version"] = int(InfinityVertexOrchestrator.CHECKPOINT_VERSION)
+    with tempfile.NamedTemporaryFile(
+            "w", suffix=".json", delete=False) as stream:
+        json.dump(modern, stream)
+        modern_path = stream.name
+    try:
+        orchestrator.import_legacy_relations(modern_path)
+        raise AssertionError("modern checkpoints must use restore_checkpoint")
+    except ValueError:
+        pass
+
+    # The imported row participates in solving: it determines vertex a.
+    report = orchestrator.run()
+    assert report["status"] == "complete"
+    assert orchestrator.solver.values[vertex] == 1
+
+
 run_tests()
+test_time_budget_stops_between_blocks()
+test_legacy_relation_import_filters_and_activates()
 print("all infinity-orchestrator tests passed")
