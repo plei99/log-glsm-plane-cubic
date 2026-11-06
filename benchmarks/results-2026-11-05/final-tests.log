@@ -1,0 +1,25 @@
+test_cjr_bipartite_graphs                         0s  all CJR bipartite-graph enumerator tests passed
+test_cjr_full_equation_provider                   3s  all full CJR equation-provider tests passed
+test_cjr_graph_contributions                      1s  all CJR graph-contribution compiler tests passed
+test_cjr_graph_factors                            1s  all universal CJR graph-factor tests passed
+test_cjr_infinity_chow                            0s  all CJR infinity-Chow backend tests passed
+test_cjr_plane_cubic_equation_provider            1s  all concrete CJR equation-provider tests passed
+test_cjr_probe_factory                            0s  all certified probe-factory tests passed
+test_cjr_pruning                                  0s  all independent CJR pruning comparisons passed
+test_cjr_punctured_axioms                         1s  all CJR punctured-axiom tests passed
+test_cjr_stabilization_boundary                   2s  all stabilization-boundary comparison tests passed
+test_elliptic_probe_values                        0s  all elliptic ProbeSpec value tests passed
+test_genus_three_infinity_vertices                1s  all genus-three infinity-vertex tests passed
+test_givental_teleman                             3s  all Givental-Teleman reconstruction tests passed
+test_hodge_integrals                             19s  all Hodge-integral backend tests passed
+test_log_glsm_conventions                         1s  all log-GLSM convention tests passed
+test_log_glsm_infinity_dp                         0s  all log-GLSM infinity DP tests passed
+test_log_glsm_infinity_orchestrator               1s  all infinity-orchestrator tests passed
+test_log_glsm_infinity_vertices                   0s  all log-GLSM infinity-vertex tests passed
+test_o3_fixed_locus_graphs                        3s  all full O(3)-twisted fixed-locus tests passed
+test_o3_hodge_specialization                      0s  all independent O(3) Hodge specialization tests passed
+test_o3_twisted_plane_vertices                    1s  all O(3)-twisted plane backend tests passed
+test_o3_zero_vertex_precompute                    0s  all O(3) zero-vertex precomputation tests passed
+test_elliptic_cubic_gw                            1s  python unittest passed
+----------------------------------------------------------------
+OK (39s)

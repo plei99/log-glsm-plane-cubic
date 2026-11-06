@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # Run every regression suite with per-suite timing.
 #
 #   ./run_tests.sh            run all suites
@@ -9,14 +9,19 @@
 # to the user environment; export it first to redirect Sage's profile.
 
 set -u
+cd "$(dirname "${BASH_SOURCE[0]}")"
+export PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}"
 
-# The suites measurably slower than ~10s (2026-08-25 full run: 168s total;
-# givental_teleman 51s, hodge_integrals 34s, o3_fixed_locus_graphs 18s;
-# everything else under 10s).
+# Suites excluded by FAST=1, including the longer complete-intersection
+# comparisons added in November 2026. The full suite is the release check.
 SLOW_SUITES="
 test_givental_teleman
 test_hodge_integrals
 test_o3_fixed_locus_graphs
+test_genus_four_marked
+test_grassmannian_laurent
+test_projective_complete_intersections
+test_toric_complete_intersections
 "
 
 is_slow() {
@@ -32,8 +37,8 @@ failures=""
 skipped=0
 total_start=$(date +%s)
 
-for suite_file in test_*.sage; do
-    suite=${suite_file%.sage}
+for suite_file in tests/test_*.sage; do
+    suite=$(basename "${suite_file%.sage}")
     if [ "${FAST:-}" = "1" ] && is_slow "$suite"; then
         skipped=$((skipped + 1))
         printf '%-46s skipped (FAST=1)\n' "$suite"
@@ -53,15 +58,15 @@ for suite_file in test_*.sage; do
 done
 
 start=$(date +%s)
-if output=$(python3 -m unittest -q test_elliptic_cubic_gw 2>&1); then
+if output=$(python3 -m unittest discover -s tests -p 'test_*.py' -q 2>&1); then
     elapsed=$(( $(date +%s) - start ))
-    printf '%-46s %4ss  %s\n' "test_elliptic_cubic_gw" "$elapsed" \
+    printf '%-46s %4ss  %s\n' "python_unittests" "$elapsed" \
         "python unittest passed"
 else
     elapsed=$(( $(date +%s) - start ))
-    printf '%-46s %4ss  FAILED\n' "test_elliptic_cubic_gw" "$elapsed"
+    printf '%-46s %4ss  FAILED\n' "python_unittests" "$elapsed"
     printf '%s\n' "$output" | tail -12 | sed 's/^/    /'
-    failures="$failures test_elliptic_cubic_gw"
+    failures="$failures python_unittests"
 fi
 
 total=$(( $(date +%s) - total_start ))

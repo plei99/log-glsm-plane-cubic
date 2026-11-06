@@ -10,8 +10,18 @@ import argparse
 import json
 import time
 
-load("o3_fixed_locus_graphs.sage")
-load("o3_givental_teleman.sage")
+
+from log_glsm.localization.o3_givental import (
+    O3DegreeZeroGiventalBackend,
+)
+from log_glsm.localization.plane import (
+    P2FixedLocusEvaluator,
+)
+from log_glsm.localization.twisted_plane import (
+    TwistedInsertion,
+    TwistedZeroVertexRequest,
+)
+
 
 
 def profile_degree_zero_vertex(genus=3, h_power=None, psi_power=0,

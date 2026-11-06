@@ -1098,15 +1098,13 @@ support consists of 18
 degree-zero and degree-one effective invariants related by the punctured
 contact-`-1` equations; every vertex has `contact_psi=[]`.
 
-The newly implemented one-point boundary-comparison row has compact value
-`-31/967680`, target coefficient `-625/72`, and no `contact_psi`.  It raises
-that historical component's rank from 278 to 279 but does not remove the one
-kernel direction moving the target.  Adding all degree-zero, at-most-two-point
-boundary-compared stationary rows solves four additional coordinates and
-leaves the target component at rank 279 on 339 columns.
+The corrected one-point boundary-comparison row has compact value
+`-31/967680`, target coefficient `-1/72`, and no `contact_psi`. The earlier
+coefficient `-625/72` used the wrong marked cotangent weight in (8.21).
+Rank and solved-coordinate claims that used that old descendant row are
+withdrawn. The large corrected system has not been rerun; the historical
+primary-only block does not determine the target.
 
-Thus the certified answer remains `UNDETERMINED`, not zero, but the reason is
-now precise: this finite family leaves one direction through the target.
 Theorem 10.1 computes hypersurface GW invariants from twisted invariants and
 effective invariants; it does not assert the converse.  Remark 10.7 observes
 that negative Laurent coefficients give relations among effective invariants
@@ -1206,12 +1204,13 @@ useful tests of the generic graph compiler, but their larger ranks and kernels
 must not be quoted as the Theorem 10.1 hypersurface reconstruction.
 
 All version-8 checkpoints predate the boundary-comparison rows and are
-rejected by the version-9 orchestrator.  Their zero-vertex and Hodge caches
+rejected by the version-10 orchestrator.  Their zero-vertex and Hodge caches
 remain reusable.
 
-The compiled *relations* inside a version-8 checkpoint are also reusable:
+Only unaffected compiled *relations* inside version-8/9 checkpoints are reusable:
 each record is an exact statement independent of the stage bookkeeping that
-version 9 distrusts.  `import_legacy_relations` (CLI:
+version 10 distrusts. Old log-domain descendant rows are also discarded
+because they use the incorrect marked cotangent weight.  `import_legacy_relations` (CLI:
 `--import-v8-relations PATH`) loads them as candidate rows, keeping only
 
 - complete records passing the Chow scalar gate (residual dimension `<= 0`;
@@ -1255,5 +1254,5 @@ filters exist for row families whose entries reach the tens-of-thousands of
 digits where fraction-field elimination enters the integer-FFT range.  The
 sound-specialization protocol (per-point invariants, rebuild on breach) is
 what makes the certified filters exact; see
-`test_cjr_probe_factory.sage` for the pole-coefficient counterexample that
+`tests/test_cjr_probe_factory.sage` for the pole-coefficient counterexample that
 defeats naive one-point filtering.

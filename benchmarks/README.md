@@ -1,3 +1,31 @@
+# November 2026 hill climb
+
+The fixed six-workload suite improved from 33.81 s to 5.32 s (6.35x),
+using the ratio of median total compute times from three alternating
+before/after runs. Individual speedups range from 1.21x to 8.03x.
+All six mathematical outputs agree exactly. See
+[the detailed audit](../docs/PERFORMANCE_AND_DRAFT_AUDIT.md) and
+[raw measurements](results-2026-11-05/summary.json).
+
+Run from the repository root with the pinned Sage environment's Python:
+
+```bash
+python benchmarks/benchmark_hill_climb.py --output /tmp/measurement.json
+python benchmarks/compare_hill_climb.py MEASUREMENT_DIRECTORY OUTPUT_DIRECTORY
+```
+
+The comparison expects `before-1.json` through `before-3.json` and
+`after-1.json` through `after-3.json`. It checks every graph representative
+and automorphism order, every compiled relation coefficient, and exact Sage
+fraction-field equality for O(3) values. Rational-function string hashes can
+differ even when the fractions are equal; the comparator checks the actual
+fractions. Setup/import time and result serialization are outside the timed
+region. Each case creates a fresh evaluator without disk result caches.
+
+The unchanged-output performance cases use a primary CJR relation. The
+separately corrected log-descendant relation intentionally differs from the
+old, incorrect output and is checked against CJR III (8.21).
+
 # Genus-three performance experiments
 
 These scripts separate the combinatorial CJR graph layer from the exact

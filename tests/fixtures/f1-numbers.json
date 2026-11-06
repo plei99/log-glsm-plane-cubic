@@ -1,0 +1,218 @@
+{
+  "T9-g2-numbers.json": {
+    "target": {
+      "chern_numbers": {
+        "c1_squared": "7",
+        "euler": "5"
+      }
+    },
+    "rows": [
+      {
+        "beta": [
+          0,
+          0,
+          0
+        ],
+        "twisted_unmarked": "-1/360"
+      },
+      {
+        "beta": [
+          0,
+          0,
+          1
+        ],
+        "twisted_unmarked": "-1/288"
+      }
+    ]
+  },
+  "T9-g3-numbers.json": {
+    "target": {
+      "chern_numbers": {
+        "c1_squared": "7",
+        "euler": "5"
+      }
+    },
+    "rows": [
+      {
+        "beta": [
+          0,
+          0,
+          0
+        ],
+        "twisted_unmarked": "1/90720"
+      },
+      {
+        "beta": [
+          0,
+          0,
+          1
+        ],
+        "twisted_unmarked": "-13/90720"
+      }
+    ]
+  },
+  "T10-g2-numbers.json": {
+    "target": {
+      "chern_numbers": {
+        "c1_squared": "0",
+        "euler": "24"
+      }
+    },
+    "rows": [
+      {
+        "beta": [
+          0,
+          0,
+          0
+        ],
+        "twisted_unmarked": "-1/360"
+      },
+      {
+        "beta": [
+          0,
+          0,
+          1
+        ],
+        "twisted_unmarked": "1/90"
+      }
+    ]
+  },
+  "T10-g3-numbers.json": {
+    "target": {
+      "chern_numbers": {
+        "c1_squared": "0",
+        "euler": "24"
+      }
+    },
+    "rows": [
+      {
+        "beta": [
+          0,
+          0,
+          0
+        ],
+        "twisted_unmarked": "1/90720"
+      },
+      {
+        "beta": [
+          0,
+          0,
+          1
+        ],
+        "twisted_unmarked": "1/22680"
+      }
+    ]
+  },
+  "T11-g2-numbers.json": {
+    "target": {
+      "chern_numbers": {
+        "c1_cubed": "42",
+        "c1_c2": "24",
+        "euler": "8",
+        "C": "-16"
+      }
+    },
+    "rows": [
+      {
+        "beta": [
+          0,
+          0,
+          0
+        ],
+        "twisted_unmarked": "0"
+      },
+      {
+        "beta": [
+          0,
+          0,
+          1
+        ],
+        "twisted_unmarked": "1/960"
+      }
+    ]
+  },
+  "T12-g2-numbers.json": {
+    "target": {
+      "chern_numbers": {
+        "c1_cubed": "0",
+        "c1_c2": "0",
+        "euler": "-144",
+        "C": "-144"
+      }
+    },
+    "rows": [
+      {
+        "beta": [
+          0,
+          0,
+          0
+        ],
+        "twisted_unmarked": "0"
+      },
+      {
+        "beta": [
+          0,
+          0,
+          1
+        ],
+        "twisted_unmarked": "1/16"
+      }
+    ]
+  },
+  "T11-g3-numbers.json": {
+    "target": {
+      "chern_numbers": {
+        "c1_cubed": "42",
+        "c1_c2": "24",
+        "euler": "8",
+        "C": "-16"
+      }
+    },
+    "rows": [
+      {
+        "beta": [
+          0,
+          0,
+          0
+        ],
+        "twisted_unmarked": "0"
+      },
+      {
+        "beta": [
+          0,
+          0,
+          1
+        ],
+        "twisted_unmarked": "-1/40320"
+      }
+    ]
+  },
+  "T12-g3-numbers.json": {
+    "target": {
+      "chern_numbers": {
+        "c1_cubed": "0",
+        "c1_c2": "0",
+        "euler": "-144",
+        "C": "-144"
+      }
+    },
+    "rows": [
+      {
+        "beta": [
+          0,
+          0,
+          0
+        ],
+        "twisted_unmarked": "0"
+      },
+      {
+        "beta": [
+          0,
+          0,
+          1
+        ],
+        "twisted_unmarked": "1/1440"
+      }
+    ]
+  }
+}

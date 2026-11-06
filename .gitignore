@@ -9,3 +9,9 @@ tmp/
 *.sqlite-shm
 *.sqlite-wal
 results/**/*.json
+results/**
+!results/**/
+!results/**/*.md
+*.egg-info/
+build/
+dist/

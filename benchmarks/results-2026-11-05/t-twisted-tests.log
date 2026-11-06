@@ -1,0 +1,13 @@
+test_all_saved_results (test_t_twisted_cubic.TTwistedTests.test_all_saved_results) ... ok
+test_ancestor_divisor_equation (test_t_twisted_cubic.TTwistedTests.test_ancestor_divisor_equation) ... ok
+test_colour_elimination_against_brute_force (test_t_twisted_cubic.TTwistedTests.test_colour_elimination_against_brute_force) ... ok
+test_cubic_picard_fuchs (test_t_twisted_cubic.TTwistedTests.test_cubic_picard_fuchs) ... ok
+test_gjr_rank_five_calibration (test_t_twisted_cubic.TTwistedTests.test_gjr_rank_five_calibration) ... ok
+test_separate_generic_graph_engine (test_t_twisted_cubic.TTwistedTests.test_separate_generic_graph_engine) ... ok
+test_symplectic_through_order_six (test_t_twisted_cubic.TTwistedTests.test_symplectic_through_order_six) ... ok
+test_unit_metric_and_input (test_t_twisted_cubic.TTwistedTests.test_unit_metric_and_input) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 1.051s
+
+OK

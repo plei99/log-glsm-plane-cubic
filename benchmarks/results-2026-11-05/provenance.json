@@ -1,0 +1,68 @@
+{
+  "baseline_commit": "e5e591a3d5d087482c1d2d9ee4394f7267176c7a",
+  "baseline_includes_preexisting_uncommitted_files": [
+    "README.md",
+    "givental_teleman.sage",
+    "o3_givental_teleman.sage",
+    "test_givental_teleman.sage"
+  ],
+  "baseline_directory": "/home/patrick/agent-work/benchmarks/log-glsm-20261105/baseline",
+  "source_pdfs": [
+    {
+      "filename": "Chen-Janda-Ruan_Structural_Formulae_in_Logarithmic_Gauged_Linear_Sigma_Models_1_the_Tropical_Decomposition_Formula.pdf",
+      "sha256": "94875898919ace4e7327f590ef6bbc042acffbc25406f42c680627bbaa9c00ae"
+    },
+    {
+      "filename": "Chen-Janda-Ruan_Structural_Formulae_in_Logarithmic_Gauged_Linear_Sigma_Models_III_the_Localization_Formula.pdf",
+      "sha256": "211a8a9a890a9c80a38e00f755b1317cbf1e5ab34b70093bf12bb0b3afe88323"
+    },
+    {
+      "filename": "Chen-Janda-Ruan_Punctured_Logarithmic_R-Maps.pdf",
+      "sha256": "4601a36ec6b5344327e2e7db0cfa4559f9f5903b734e0b7d4e0a463f1c2cb7b2"
+    }
+  ],
+  "baseline_source_sha256": {
+    "bo_coefficient.sage": "eefad568556752a041ba30debfab0ab49ab65a656c017efb9bedbd0a9d72a1f1",
+    "cjr_bipartite_graphs.sage": "147e2fa9f5fb649ebd6f06738c4d9a862e2eb39337db19c3781895290664255d",
+    "cjr_full_equation_provider.sage": "c4665517c14dca60cfcc8fb0d43167685de80b306d3238b02b86f737536a310f",
+    "cjr_graph_contributions.sage": "5121993776d0012bf5e2443de218bbceea865ee3f7cf0793e007a6f621fcc34b",
+    "cjr_graph_factors.sage": "307f6ca3ed34c99f85fa4e5062116689c6d75e94364654c0323105caa5765033",
+    "cjr_infinity_chow.sage": "0af841c02107a1f791c3b12952755b74cae327fec52b9d0d17b816bd1378d3d0",
+    "cjr_plane_cubic_equation_provider.sage": "771d9c1546f8609adea69cede97e418e010bd464f2f3222aab2e967a7f506852",
+    "cjr_probe_factory.sage": "c920c1bf78053bb0dbcba49ab6ffda13f5fabc1a17a6332ca5f217f1a1d42807",
+    "cjr_punctured_axioms.sage": "12f9835b9d4beb28d7927bfadebce7b279425050fea39f67ab6de6000aed9083",
+    "cjr_stabilization_boundary.sage": "823f7496c92c816fed8dbff8aeebe6b9bf3a57992a98bc7bda3c03026c9fd764",
+    "elliptic_probe_values.sage": "eef0dc4565456fa57f6e524d0fbffe5217a338c9f6a50ac7c1a176566268823f",
+    "genus_three_infinity_vertices.sage": "6e1ab5281e28a209629c55a8364820c001e7261c82c1068bc3d401d9866e93d5",
+    "givental_teleman.sage": "3c4f4496c5dbf14061c787c931441f4ceff720429bd06b3b87e8614265ac5800",
+    "hodge_integrals.sage": "73c575e66c601600cf246d1f3a5782622e6cd3f087cc42ad5ee74ba0eef9c678",
+    "log_glsm_conventions.sage": "a0001e765059d5c0d769c4b236ec461af03e6ea31d7c86cc932ad167c7dfb409",
+    "log_glsm_infinity_dp.sage": "16b570685586f427c0ade363ce583c91156340fb4ea0f7da32a15337f690ea55",
+    "log_glsm_infinity_orchestrator.sage": "5c7cd4e8051a97648ff5eb24430dba57c0931109d7850e58446cc7cde7179be1",
+    "log_glsm_infinity_vertices.sage": "b74ecc0e6dffb2f34f40f22a94470937706bacf0bad4be177bf06b5da4e54ae7",
+    "o3_fixed_locus_graphs.sage": "5764e6e8f2656059528bcaf895c63ab5db66fae1740956c4a201349931a5c54a",
+    "o3_givental_teleman.sage": "322d41b2c121de1bbd3aea56ee2a7ddcebe86ba3e0bfd49814c25019dbf5a726",
+    "o3_twisted_plane_vertices.sage": "7a062398c4f9bbfe974422e7844e759773a655ec37d9a63dba733243de9229ca",
+    "o3_zero_vertex_precompute.sage": "b6db4bc86bcfa188e797dde5e0258db3b38211856db6c225381e4a0fe2527352",
+    "test_cjr_bipartite_graphs.sage": "6ecb7be441b6a11174bb9ca77476b9cfa69bc0511737414fbf6295d1dca8cf92",
+    "test_cjr_full_equation_provider.sage": "85259b9547a3cfbfc4fdc9aa9e693c0ccbb0a949ff9eacf459d4746e40888076",
+    "test_cjr_graph_contributions.sage": "59e352ee82ac0fcaa6f19063e7f820c3729fc4d3423ad5c313521ea55ef8692b",
+    "test_cjr_graph_factors.sage": "fbb7f2e1a391a086e2f6d5f0802fcf09ee486e1ede2388eb954dda1ac1edb4ec",
+    "test_cjr_infinity_chow.sage": "7ec5d371a9363da326d48dd5a7906f12055098a870ecfe8099de88c43a4fa538",
+    "test_cjr_plane_cubic_equation_provider.sage": "1ac81932f0ca11696f05c315cfb26d31052d0950fa2b99ac1e5fa41159bf3202",
+    "test_cjr_probe_factory.sage": "9fc18ae14bfe8fe9d2f3310938bb72b6d52ed60a8536bd104e3c643b9bd781d0",
+    "test_cjr_punctured_axioms.sage": "9c9cae440c5fd6dc6646dd9d5c98c9b0e61bf8cefaae72c345ecc44fd271d61d",
+    "test_cjr_stabilization_boundary.sage": "eef22ddd86d836c9984fffc5d5f53ff497892977d8d171cfefa4a179cc23ce0c",
+    "test_elliptic_probe_values.sage": "b2781615f50edcfb96b8552059f5b8fe03d75b3f6a994a8bcd6f9bd22b3a9580",
+    "test_genus_three_infinity_vertices.sage": "fbe1051d444bcc38d0d2d61af11a7debc86054a0a4a5fd438a1d783315816052",
+    "test_givental_teleman.sage": "a7ffa8885aea3d15ca2f8b0681cb1fb66d711c6fffb05111da5932c7aea26594",
+    "test_hodge_integrals.sage": "a8a87d07f26d83cebc9f8a92a3379acf1f364f12f22687454bef0f4972bede4d",
+    "test_log_glsm_conventions.sage": "a505dd80a83480540e38667e66885351614973e1031b3336d6a838e5c4e037b6",
+    "test_log_glsm_infinity_dp.sage": "7bf653ab335123d54d18a2cfe4c4f77312243183ec56d08557472b7723066dcd",
+    "test_log_glsm_infinity_orchestrator.sage": "5f1351ed4437c3020bcc20aa225f30e7d6455d50d9f4eb8f5d744ea17654edc2",
+    "test_log_glsm_infinity_vertices.sage": "c98f4335c10580903fc2656c633e7c6261b6965e7c2c89585317e00e0979d750",
+    "test_o3_fixed_locus_graphs.sage": "a1f708fafaeb236244437d355e2c9dcf7cf8527b029d8779380496598cfcf68a",
+    "test_o3_twisted_plane_vertices.sage": "6a6506d6b59f5f5c1c2aace8037a1989d3002086f6158936292b4b564b3a0ccf",
+    "test_o3_zero_vertex_precompute.sage": "d70f73776b92af19e6029ad85782b81830d23e0245a38e6af72c712ae477385c"
+  }
+}

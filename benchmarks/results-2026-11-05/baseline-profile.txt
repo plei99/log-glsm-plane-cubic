@@ -1,0 +1,32 @@
+graphs=2088 elapsed=66.618269
+         329173652 function calls (315775155 primitive calls) in 66.610 seconds
+
+   Ordered by: cumulative time
+   List reduced from 183 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.037    0.037   66.618   66.618 <string>:790(graphs)
+    15638    9.109    0.001   65.124    0.004 <string>:723(_mixed_graphs)
+  7341796   10.524    0.000   22.053    0.000 <string>:550(_canonical_marking_decorations)
+  6080529   14.241    0.000   19.325    0.000 <string>:659(_zero_vertex_types)
+19502854/7341796    5.580    0.000    6.469    0.000 <string>:590(extend)
+ 97435288    6.409    0.000    6.409    0.000 {method 'append' of 'list' objects}
+   114222    0.048    0.000    5.350    0.000 <string>:280(is_valid)
+   114222    0.888    0.000    5.296    0.000 <string>:215(validation_errors)
+  6080529    3.719    0.000    4.333    0.000 <string>:612(_contact_budget_available)
+ 79868810    2.494    0.000    2.494    0.000 <string>:767(<genexpr>)
+   705114    0.295    0.000    2.168    0.000 <string>:169(zero_vertex_type)
+  1395868    1.060    0.000    1.792    0.000 {built-in method builtins.max}
+ 34441120    1.518    0.000    1.518    0.000 {built-in method builtins.len}
+  1391137    0.872    0.000    1.509    0.000 {built-in method builtins.sorted}
+   705114    0.846    0.000    1.460    0.000 <string>:132(zero_edge_valences)
+    15638    0.083    0.000    1.442    0.000 <string>:337(canonical_key)
+   125253    0.619    0.000    0.956    0.000 <string>:68(_connected_bipartite)
+  8000663    0.647    0.000    0.925    0.000 <string>:116(zero_count)
+   114222    0.304    0.000    0.795    0.000 <string>:102(__init__)
+    15638    0.168    0.000    0.764    0.000 generic_graph.py:25428(canonical_label)
+  7341796    0.751    0.000    0.751    0.000 <string>:582(<genexpr>)
+ 18146748    0.732    0.000    0.732    0.000 <string>:572(<genexpr>)
+  5828262    0.699    0.000    0.699    0.000 <string>:749(<genexpr>)
+   134601    0.101    0.000    0.656    0.000 <string>:189(infinity_balance)
+    15638    0.126    0.000    0.566    0.000 <string>:301(_colored_incidence_graph)

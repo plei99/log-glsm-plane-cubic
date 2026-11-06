@@ -55,8 +55,8 @@ infinity factor has a nonempty `contact_psi` tuple.  The sequence
 ambient degree zero through five primary markings.  The `d1` and `d2`
 sequences add the vanishing compact sectors in ambient degrees one and two.
 
-`effective-basis-d2-m2.json` is the strongest clean checkpoint currently
-saved.  It has 1259 compiled relations, 1205 active relations, 692 vertices,
+`effective-basis-d2-m2.json` is the strongest of these historical primary-only
+checkpoints. It has 1259 compiled relations, 1205 active relations, 692 vertices,
 and 349 solved values.  The final target component has rank 278 on 343 columns
 (nullity 65).  In the computed kernel basis, exactly one vector moves
 `(3,0,-5;H)`; it has support on 18 genuine effective invariants and no ordinary
@@ -64,9 +64,35 @@ contact descendants.  The
 target is therefore an undetermined basic effective-invariant direction at
 this truncation, not evidence for a missing contact-psi backend.
 
-Checkpoint version 9 adds the CJR-I stabilization-boundary comparison and
-log-domain stationary rows to the effective-basis schedule.  The one-point
-genus-three row has known side `-31/967680`, coefficient `-625/72` on
-`(3,0,-5;H)`, and no ordinary contact descendant.  Appending it to the
-historical `effective-basis-d2-m2` matrix raises the target-component rank by
-one but does not yet determine the target.
+Checkpoint version 9 added log-domain stationary rows. Those rows used an
+incorrect specialization of CJR III (8.21): the entire weight `(3H-t)` must
+be divided by contact. Version 10 fixes it. The genus-three one-point row
+now has compact side `-31/967680` and target coefficient `-1/72`.
+Previously reported rank gains from the faulty descendant rows are
+withdrawn. These saved results are historical; rebuild descendant relations
+before drawing conclusions about the corrected target block. The legacy
+import keeps unaffected Chow-scalar rows and discards affected log-descendant
+rows, all solver values, and all stage bookkeeping.
+
+The corrected November 5, 2026 rerun is in
+`corrected-2026-11-05/d1-extension/`. This is the authoritative completed
+extension for that rerun: 1,411 relations, 408 determined values (171 in
+genus three, all zero), and a remaining exact 490-by-302 linear system of
+rank 248. Projection to the 35 genus-three primary candidates without
+(-1) contacts leaves 30 parameters, hence five independent affine
+constraints. All five one-contact coordinates remain independently free
+in this finite system. `linear-certificate.json` records a particular
+solution and a kernel verified against every row. See
+[the detailed results](../../docs/GENUS_THREE_RESULTS_2026-11-05.md).
+The parent directory also contains earlier stage snapshots; consult
+`run-manifest.json` rather than treating those as the final result.
+
+The class-valued extension is in `lower-cycles-2026-11-05/`. It computes
+unmarked genus-three dual-Euler O(3) classes in ambient degrees zero and
+one, and codimensions three, four, and five. Nine auxiliary pole relations
+have exact Pixton certificates; six finite-part comparisons verify agreement
+between two choices of torus weights. The matrices, strata ordering, rational
+certificate weights, expanded classes, and all nine readable equations are
+saved together. See [the derivation and results](../../docs/GENUS_THREE_LOWER_CYCLES_2026-11-05.md).
+The CJR consequences identify the full infinity-containing aggregates;
+they do not reconstruct individual positive-dimensional effective cycles.

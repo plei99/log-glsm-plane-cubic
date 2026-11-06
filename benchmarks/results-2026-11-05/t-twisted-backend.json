@@ -1,0 +1,136 @@
+[
+  {
+    "genus": 2,
+    "degree": 1,
+    "insertions": [
+      [
+        1,
+        2
+      ]
+    ],
+    "existing_backend": "-1/8",
+    "direct_reconstruction": "-1/8",
+    "passed": true,
+    "seconds": 0.16219670299324207
+  },
+  {
+    "genus": 3,
+    "degree": 1,
+    "insertions": [
+      [
+        1,
+        4
+      ]
+    ],
+    "existing_backend": "-143/40320",
+    "direct_reconstruction": "-143/40320",
+    "passed": true,
+    "seconds": 0.1527293249964714
+  },
+  {
+    "genus": 3,
+    "degree": 1,
+    "insertions": [
+      [
+        2,
+        3
+      ]
+    ],
+    "existing_backend": "-1/840",
+    "direct_reconstruction": "-1/840",
+    "passed": true,
+    "seconds": 0.5056641970004421
+  },
+  {
+    "genus": 3,
+    "degree": 1,
+    "insertions": [
+      [
+        1,
+        4
+      ],
+      [
+        1,
+        0
+      ]
+    ],
+    "existing_backend": "-37/11520",
+    "direct_reconstruction": "-37/11520",
+    "passed": true,
+    "seconds": 1.4825080370064825
+  },
+  {
+    "genus": 4,
+    "degree": 1,
+    "insertions": [
+      [
+        1,
+        6
+      ]
+    ],
+    "existing_backend": "19/12902400",
+    "direct_reconstruction": "19/12902400",
+    "passed": true,
+    "seconds": 0.5934726909908932
+  },
+  {
+    "genus": 2,
+    "degree": 2,
+    "insertions": [
+      [
+        1,
+        2
+      ]
+    ],
+    "existing_backend": "-8/5",
+    "direct_reconstruction": "-8/5",
+    "passed": true,
+    "seconds": 0.3237153319932986
+  },
+  {
+    "genus": 5,
+    "degree": 1,
+    "insertions": [
+      [
+        1,
+        8
+      ]
+    ],
+    "existing_backend": "0",
+    "direct_reconstruction": "0",
+    "passed": true,
+    "seconds": 8.541869931999827
+  },
+  {
+    "genus": 5,
+    "degree": 2,
+    "insertions": [
+      [
+        1,
+        8
+      ]
+    ],
+    "existing_backend": "186937/3406233600",
+    "direct_reconstruction": "186937/3406233600",
+    "passed": true,
+    "seconds": 9.124045934993774
+  },
+  {
+    "genus": 4,
+    "degree": 1,
+    "insertions": [
+      [
+        1,
+        6
+      ],
+      [
+        1,
+        0
+      ]
+    ],
+    "existing_backend": "-1/50400",
+    "direct_reconstruction": "-1/50400",
+    "passed": true,
+    "seconds": 16.509250677016098
+  }
+]

@@ -5,9 +5,29 @@ including contact-resolved CJR graph enumeration, full
 `O(3)`-twisted zero vertices, tautological integration, and reconstruction
 from known elliptic-curve Gromov-Witten invariants.
 
+The November 2026 formula corrections, performance derivations, and exact
+benchmark results are in [the new audit](docs/PERFORMANCE_AND_DRAFT_AUDIT.md).
+
+The [projective complete-intersection extension](docs/PROJECTIVE_COMPLETE_INTERSECTION_RESULTS_2026-11-06.md)
+adds nine Fano hypersurface types and all five projective CY3 complete-intersection
+types. It computes genus-two/three stabilized dual-Euler classes through ambient
+degree three, exports exact Pixton certificates, and keeps ordinary compact GW
+contributions distinct from the ambient twist. See the
+[source audit](docs/PROJECTIVE_COMPLETE_INTERSECTION_SOURCES.md) for CJR's higher-rank conventions.
+
+The [bounded toric extension](docs/TORIC_COMPLETE_INTERSECTION_RESULTS_2026-11-06.md)
+adds twelve Fano, K3, and CY3 targets in five toric Fano products, including
+Hirzebruch-surface factors. It keeps vector-valued Mori degrees, negative normal
+edge contributions, and exact certificates relating the toric results to the
+previous projective search.
+
+The implementation is organized into importable `log_glsm` modules. See the
+[module guide](docs/MODULES.md) for interfaces, installation, compatibility
+entry points, and the distinction between code, tests, and run artifacts.
+
 ## Quick start
 
-The Sage modules are tested with SageMath 10.7. The required `admcycles` 1.4
+The current module layout is tested with SageMath 10.9 on Linux. The required `admcycles` 1.4
 package is vendored in this repository, so no separate Python installation is
 needed. Run commands from the repository root:
 
@@ -32,9 +52,10 @@ sage genus_three_infinity_vertices.sage \
 The same `--time-budget` flag now exists on
 `log_glsm_infinity_orchestrator.sage` itself; a budgeted run stops cleanly
 between blocks with checkpointable state and reports `timed_out`.  Compiled
-relations locked inside version-8 checkpoints can be recovered with
-`--import-v8-relations PATH`, which keeps only Chow-scalar localization rows
-and discards the untrustworthy v8 stage bookkeeping.
+unaffected relations inside version-8/9 checkpoints can be recovered with
+`--import-v8-relations PATH`. Checkpoint version 10 excludes old log-descendant
+rows, whose marked cotangent weight was wrong, and retains only valid
+Chow-scalar rows without old solver values or stage bookkeeping.
 
 For a step-by-step guide to aggregate and contact-resolved infinity vertices,
 see [Computing infinity vertices](docs/COMPUTING_INFINITY_VERTICES.md).
@@ -207,7 +228,7 @@ Here `relation.probe.psi_convention == "log"`, its known side is
 The code records this distinction as `ProbeSpec.psi_convention` and implements
 both cases. On a stable zero component the two restrictions agree. On an
 unstable marked zero tail of contact `c`, the log-domain class contributes
-`3H/c-t`, while the pullback of the stable-map class becomes the ordinary
+`(3H-t)/c`, while the pullback of the stable-map class becomes the ordinary
 cotangent line at the adjacent infinity contact. `EffectiveVertex.contact_psi`
 records those powers. Primary probes are unchanged.
 
@@ -790,6 +811,19 @@ D S_{m+1}=C_H S_m-S_m C_H(0),\qquad S_0=1,
 \tau_k(\gamma)=\sum_{m=0}^k\bar\tau_{k-m}(S_m\gamma).
 \]
 
+`O3CalibratedGiventalBackend.evaluate(request)` includes this S transformation.
+Use `evaluate_ancestor(request)` for classes pulled back from stable curves.
+The ancestor path uses the bound
+`3g-3+n-sum(psi_powers)` on graph edges and R degrees; vertex dimensions
+also prune impossible monomials before multiplication.
+
+Both methods use the dual Euler twist with fiber weight `t-3H`. To obtain
+GJR's ordinary Euler twist `e(R pi_*O(3) tensor C_{-t})`, multiply degree d
+by `(-1)^(3d+1-g)` and take the nonequivariant base limit after the complete
+sum. The separately implemented direct t-only reconstruction and the
+genus-two through genus-five comparisons are documented in
+[`../README_t_twisted_cubic.md`](../README_t_twisted_cubic.md).
+
 Primary and descendant positive-degree coefficients are checked exactly
 against virtual localization in degrees one and two. Use the calibrated path
 with:
@@ -808,11 +842,11 @@ profiled.
 Run the focused checks with
 
 ```bash
-DOT_SAGE=/tmp/codex-sage sage test_givental_teleman.sage
-DOT_SAGE=/tmp/codex-sage sage test_hodge_integrals.sage
-DOT_SAGE=/tmp/codex-sage sage test_o3_fixed_locus_graphs.sage
-DOT_SAGE=/tmp/codex-sage sage test_cjr_graph_contributions.sage
-DOT_SAGE=/tmp/codex-sage sage test_cjr_full_equation_provider.sage
+DOT_SAGE=/tmp/codex-sage sage tests/test_givental_teleman.sage
+DOT_SAGE=/tmp/codex-sage sage tests/test_hodge_integrals.sage
+DOT_SAGE=/tmp/codex-sage sage tests/test_o3_fixed_locus_graphs.sage
+DOT_SAGE=/tmp/codex-sage sage tests/test_cjr_graph_contributions.sage
+DOT_SAGE=/tmp/codex-sage sage tests/test_cjr_full_equation_provider.sage
 ```
 
 ### Decorated bipartite graph enumerator
@@ -839,7 +873,7 @@ For mixed-level graphs the stability and balance constraints give the finite
 conservative bound
 
 \[
-|V(\Gamma)|\leq 4g+2n+d-1.
+|V(\Gamma)|+b_1(\Gamma)\leq 2g+n+d-1.
 \]
 
 That bound is very loose — genus-two graphs never exceed four zero vertices
@@ -869,7 +903,7 @@ and the graph compiler shares one enumerated family across every probe with
 the same `(g,n,d)`. The O(3)-twisted backend likewise shares internal `P^2`
 fixed-locus graphs when only insertion coefficients change.
 
-Both reductions are exact. `test_cjr_bipartite_graphs.sage` cross-checks the
+Both reductions are exact. `tests/test_cjr_bipartite_graphs.sage` cross-checks the
 canonical generator against the brute-force labeled search, and the resulting
 isomorphism classes, automorphism orders, and infinity dependencies are
 unchanged. Measured:
@@ -1065,9 +1099,9 @@ Run the tests with:
 
 ```bash
 python3 -m unittest -v test_elliptic_cubic_gw.py
-sage test_log_glsm_infinity_vertices.sage
-sage test_log_glsm_infinity_dp.sage
-sage test_cjr_plane_cubic_equation_provider.sage
+sage tests/test_log_glsm_infinity_vertices.sage
+sage tests/test_log_glsm_infinity_dp.sage
+sage tests/test_cjr_plane_cubic_equation_provider.sage
 ```
 
 ## Scope
@@ -1076,6 +1110,16 @@ This module computes the numerical positive-degree genus-one primary theory
 and the one-point genus-two invariant by the specialized log-GLSM graph
 reconstruction above. It does not yet implement arbitrary descendants or
 the full all-genus effective-vertex formalism.
+
+## Quartic K3 extension
+
+The separate [quartic K3 module](quartic_k3.sage), extended by
+[the full fixed-graph backend](quartic_k3_fixed_graphs.sage), replaces the
+compact target by a smooth quartic surface and uses ordinary K3 GW
+vanishing. It computes unmarked genera two and three through ambient
+degree three. See [the detailed quartic results](docs/QUARTIC_K3_RESULTS_2026-11-05.md)
+for class formulas, exact Pixton certificates, and the distinction from
+reduced K3 theory.
 
 ## References
 
@@ -1091,3 +1135,7 @@ the full all-genus effective-vertex formalism.
 - A. Pixton, *The Gromov-Witten Theory of an Elliptic Curve and Quasimodular
   Forms*, Theorem 3.2.2 and equation (4.3), for the stationary formula and
   normalized Eisenstein series.
+
+The bounded Grassmannian extension treats fourteen Fano/K3/CY3 complete intersections in Gr(2,4) and Gr(2,5), genera two and three, and Plücker degree at most two. See [the geometric and computational report](docs/GRASSMANNIAN_COMPLETE_INTERSECTION_RESULTS_2026-11-06.md), [the source audit](docs/GRASSMANNIAN_COMPLETE_INTERSECTION_SOURCES.md), and [the module](grassmannian_complete_intersections.sage). Its 206 independent relation vectors equal the preceding toric span and have exact Pixton and prior-span certificates.
+
+The [Gr(2,7)[1⁷] extension](docs/GRASSMANNIAN_27_RESULTS_2026-11-06.md) computes the degree-42 CY3 through degree two in genera two and three, including a geometric determination of its ordinary degree-two invariants and 20 exact Pixton certificates. Its outputs are separate from the original fourteen-target sample.

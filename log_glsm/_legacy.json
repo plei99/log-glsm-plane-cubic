@@ -1,0 +1,1403 @@
+{
+  "bo_coefficient": {
+    "dependencies": [],
+    "bindings": {
+      "_normalized_eisenstein_polynomial": [
+        "module",
+        "curves.bloch_okounkov"
+      ],
+      "bo_coefficient": [
+        "module",
+        "curves.bloch_okounkov"
+      ],
+      "_descendant_degrees": [
+        "module",
+        "curves.bloch_okounkov"
+      ],
+      "_in_paper_eisenstein_convention": [
+        "module",
+        "curves.bloch_okounkov"
+      ],
+      "disconnected_coefficient": [
+        "module",
+        "curves.bloch_okounkov"
+      ],
+      "connected_coefficient": [
+        "module",
+        "curves.bloch_okounkov"
+      ]
+    }
+  },
+  "log_glsm_conventions": {
+    "dependencies": [],
+    "bindings": {
+      "os": [
+        "import",
+        "os",
+        null
+      ],
+      "NONEQUIVARIANT_BASE_PATH": [
+        "module",
+        "core.conventions"
+      ],
+      "NONEQUIVARIANT_CACHE_TAG": [
+        "module",
+        "core.conventions"
+      ],
+      "UnsupportedGeometryError": [
+        "module",
+        "core.conventions"
+      ],
+      "TruncationError": [
+        "module",
+        "core.conventions"
+      ],
+      "specialized_zero_vertex_cache_path": [
+        "module",
+        "core.conventions"
+      ],
+      "EllipticInsertion": [
+        "module",
+        "core.conventions"
+      ],
+      "ProbeSpec": [
+        "module",
+        "core.conventions"
+      ],
+      "PlaneCubicCoefficientRing": [
+        "module",
+        "core.conventions"
+      ],
+      "PlaneCubicDimension": [
+        "module",
+        "core.conventions"
+      ],
+      "plane_cubic_reduced_sign": [
+        "module",
+        "core.conventions"
+      ]
+    }
+  },
+  "hodge_integrals": {
+    "dependencies": [
+      "log_glsm_conventions"
+    ],
+    "bindings": {
+      "os": [
+        "import",
+        "os",
+        null
+      ],
+      "sys": [
+        "import",
+        "sys",
+        null
+      ],
+      "json": [
+        "import",
+        "json",
+        null
+      ],
+      "sqlite3": [
+        "import",
+        "sqlite3",
+        null
+      ],
+      "_load_vendored_admcycles": [
+        "module",
+        "core.hodge"
+      ],
+      "_odd_double_factorial": [
+        "module",
+        "core.hodge"
+      ],
+      "_top_hodge_descendant_cache": [
+        "module",
+        "core.hodge"
+      ],
+      "_top_hodge_descendant_multiplier": [
+        "module",
+        "core.hodge"
+      ],
+      "HodgeIntegralRequest": [
+        "module",
+        "core.hodge"
+      ],
+      "PersistentHodgeIntegralStore": [
+        "module",
+        "core.hodge"
+      ],
+      "PsiIntersectionBackend": [
+        "module",
+        "core.hodge"
+      ],
+      "HodgeIntegralBackend": [
+        "module",
+        "core.hodge"
+      ],
+      "AdmcyclesHodgeIntegralBackend": [
+        "module",
+        "core.hodge"
+      ]
+    }
+  },
+  "givental_teleman": {
+    "dependencies": [
+      "hodge_integrals"
+    ],
+    "bindings": {
+      "itertools": [
+        "import",
+        "itertools",
+        null
+      ],
+      "TruncatedRMatrix": [
+        "module",
+        "localization.givental"
+      ],
+      "SemisimpleTFTData": [
+        "module",
+        "localization.givental"
+      ],
+      "GiventalTelemanCorrelator": [
+        "module",
+        "localization.givental"
+      ],
+      "exponential_series_coefficients": [
+        "module",
+        "localization.givental"
+      ]
+    }
+  },
+  "o3_twisted_plane_vertices": {
+    "dependencies": [
+      "log_glsm_conventions",
+      "hodge_integrals"
+    ],
+    "bindings": {
+      "TwistedInsertion": [
+        "module",
+        "localization.twisted_plane"
+      ],
+      "TwistedZeroVertexRequest": [
+        "module",
+        "localization.twisted_plane"
+      ],
+      "TwistedZeroVertexBackend": [
+        "module",
+        "localization.twisted_plane"
+      ],
+      "CollectingTwistedZeroVertexBackend": [
+        "module",
+        "localization.twisted_plane"
+      ],
+      "O3TwistedIBackend": [
+        "module",
+        "localization.twisted_plane"
+      ],
+      "ResummedO3TwistedTheory": [
+        "module",
+        "localization.twisted_plane"
+      ]
+    }
+  },
+  "o3_fixed_locus_graphs": {
+    "dependencies": [
+      "o3_twisted_plane_vertices"
+    ],
+    "bindings": {
+      "defaultdict": [
+        "from",
+        "collections",
+        "defaultdict",
+        null
+      ],
+      "deque": [
+        "from",
+        "collections",
+        "deque",
+        null
+      ],
+      "product": [
+        "from",
+        "itertools",
+        "product",
+        null
+      ],
+      "factorial": [
+        "from",
+        "math",
+        "factorial",
+        null
+      ],
+      "json": [
+        "import",
+        "json",
+        null
+      ],
+      "os": [
+        "import",
+        "os",
+        null
+      ],
+      "sqlite3": [
+        "import",
+        "sqlite3",
+        null
+      ],
+      "_fl_weak_compositions": [
+        "module",
+        "localization.plane_graphs"
+      ],
+      "_fl_positive_compositions": [
+        "module",
+        "localization.plane_graphs"
+      ],
+      "_fl_connected": [
+        "module",
+        "localization.plane_graphs"
+      ],
+      "SparseEquivariantLiftPlanner": [
+        "module",
+        "localization.plane_graphs"
+      ],
+      "P2FixedLocusGraph": [
+        "module",
+        "localization.plane_graphs"
+      ],
+      "P2FixedLocusGraphEnumerator": [
+        "module",
+        "localization.plane_graphs"
+      ],
+      "TautologicalPolynomial": [
+        "module",
+        "core.tautological_polynomial"
+      ],
+      "PersistentZeroVertexStore": [
+        "module",
+        "localization.zero_store"
+      ],
+      "P2FixedLocusEvaluator": [
+        "module",
+        "localization.plane"
+      ],
+      "FullTwistedZeroVertexBackend": [
+        "module",
+        "localization.plane"
+      ]
+    }
+  },
+  "o3_givental_teleman": {
+    "dependencies": [
+      "o3_twisted_plane_vertices",
+      "o3_fixed_locus_graphs",
+      "givental_teleman"
+    ],
+    "bindings": {
+      "itertools": [
+        "import",
+        "itertools",
+        null
+      ],
+      "O3TwistedQuantumRing": [
+        "module",
+        "localization.o3_givental"
+      ],
+      "O3DegreeZeroGiventalData": [
+        "module",
+        "localization.o3_givental"
+      ],
+      "O3DegreeZeroGiventalBackend": [
+        "module",
+        "localization.o3_givental"
+      ],
+      "O3CalibratedGiventalData": [
+        "module",
+        "localization.o3_givental"
+      ],
+      "O3CalibratedGiventalBackend": [
+        "module",
+        "localization.o3_givental"
+      ],
+      "HybridTwistedZeroVertexBackend": [
+        "module",
+        "localization.o3_givental"
+      ]
+    }
+  },
+  "o3_zero_vertex_precompute": {
+    "dependencies": [
+      "cjr_graph_contributions",
+      "cjr_probe_factory"
+    ],
+    "bindings": {
+      "argparse": [
+        "import",
+        "argparse",
+        null
+      ],
+      "hashlib": [
+        "import",
+        "hashlib",
+        null
+      ],
+      "json": [
+        "import",
+        "json",
+        null
+      ],
+      "os": [
+        "import",
+        "os",
+        null
+      ],
+      "sys": [
+        "import",
+        "sys",
+        null
+      ],
+      "time": [
+        "import",
+        "time",
+        null
+      ],
+      "Counter": [
+        "from",
+        "collections",
+        "Counter",
+        null
+      ],
+      "O3ZeroVertexPrecomputer": [
+        "module",
+        "localization.precompute"
+      ],
+      "probe_family": [
+        "module",
+        "localization.precompute"
+      ],
+      "_main": [
+        "module",
+        "cli.o3_zero_vertex_precompute"
+      ]
+    }
+  },
+  "cjr_bipartite_graphs": {
+    "dependencies": [],
+    "bindings": {
+      "Counter": [
+        "from",
+        "collections",
+        "Counter",
+        null
+      ],
+      "defaultdict": [
+        "from",
+        "collections",
+        "defaultdict",
+        null
+      ],
+      "deque": [
+        "from",
+        "collections",
+        "deque",
+        null
+      ],
+      "product": [
+        "from",
+        "itertools",
+        "product",
+        null
+      ],
+      "factorial": [
+        "from",
+        "math",
+        "factorial",
+        null
+      ],
+      "_weak_compositions": [
+        "module",
+        "infinity.graphs"
+      ],
+      "_positive_compositions": [
+        "module",
+        "infinity.graphs"
+      ],
+      "_inverse_permutation": [
+        "module",
+        "infinity.graphs"
+      ],
+      "_connected_bipartite": [
+        "module",
+        "infinity.graphs"
+      ],
+      "BipartiteLocalizationGraph": [
+        "module",
+        "infinity.graphs"
+      ],
+      "PlaneCubicGraphEnumerator": [
+        "module",
+        "infinity.graphs"
+      ],
+      "enumerate_plane_cubic_graphs": [
+        "module",
+        "infinity.graphs"
+      ],
+      "_command_line": [
+        "module",
+        "cli.cjr_bipartite_graphs"
+      ]
+    }
+  },
+  "cjr_graph_factors": {
+    "dependencies": [
+      "log_glsm_conventions"
+    ],
+    "bindings": {
+      "P2Class": [
+        "module",
+        "infinity.factors"
+      ],
+      "PlaneCubicGraphFactors": [
+        "module",
+        "infinity.factors"
+      ],
+      "p2_dual_power": [
+        "module",
+        "infinity.factors"
+      ],
+      "EffectivePolynomial": [
+        "module",
+        "infinity.factors"
+      ]
+    }
+  },
+  "cjr_graph_contributions": {
+    "dependencies": [
+      "cjr_bipartite_graphs",
+      "log_glsm_infinity_dp",
+      "cjr_graph_factors",
+      "o3_fixed_locus_graphs"
+    ],
+    "bindings": {
+      "product": [
+        "from",
+        "itertools",
+        "product",
+        null
+      ],
+      "GraphContribution": [
+        "module",
+        "infinity.contributions"
+      ],
+      "ProbeCompilation": [
+        "module",
+        "infinity.contributions"
+      ],
+      "PlaneCubicGraphContributionCompiler": [
+        "module",
+        "infinity.contributions"
+      ]
+    }
+  },
+  "cjr_full_equation_provider": {
+    "dependencies": [
+      "cjr_graph_contributions",
+      "elliptic_probe_values",
+      "cjr_probe_factory",
+      "cjr_infinity_chow",
+      "cjr_stabilization_boundary",
+      "o3_givental_teleman"
+    ],
+    "bindings": {
+      "argparse": [
+        "import",
+        "argparse",
+        null
+      ],
+      "json": [
+        "import",
+        "json",
+        null
+      ],
+      "os": [
+        "import",
+        "os",
+        null
+      ],
+      "sys": [
+        "import",
+        "sys",
+        null
+      ],
+      "PlaneCubicFullEquationProvider": [
+        "module",
+        "infinity.equations"
+      ],
+      "genus_two_profile_split_rank_witness": [
+        "module",
+        "infinity.equations"
+      ],
+      "genus_two_profile_split_report": [
+        "module",
+        "infinity.equations"
+      ],
+      "genus_two_resummed_end_to_end": [
+        "module",
+        "infinity.equations"
+      ],
+      "genus_two_end_to_end_report": [
+        "module",
+        "infinity.equations"
+      ],
+      "_main": [
+        "module",
+        "cli.cjr_full_equation_provider"
+      ]
+    }
+  },
+  "cjr_plane_cubic_equation_provider": {
+    "dependencies": [
+      "log_glsm_infinity_dp",
+      "cjr_bipartite_graphs"
+    ],
+    "bindings": {
+      "argparse": [
+        "import",
+        "argparse",
+        null
+      ],
+      "json": [
+        "import",
+        "json",
+        null
+      ],
+      "os": [
+        "import",
+        "os",
+        null
+      ],
+      "sys": [
+        "import",
+        "sys",
+        null
+      ],
+      "primitive_stationary_vertex": [
+        "module",
+        "infinity.one_point"
+      ],
+      "_partition_multiplicity": [
+        "module",
+        "infinity.one_point"
+      ],
+      "primitive_o3_twisted_block": [
+        "module",
+        "infinity.one_point"
+      ],
+      "basic_minus_two_vertex": [
+        "module",
+        "infinity.one_point"
+      ],
+      "unstable_leaf_edge_pair_factor": [
+        "module",
+        "infinity.one_point"
+      ],
+      "basic_star_diagonal_coefficient": [
+        "module",
+        "infinity.one_point"
+      ],
+      "PlaneCubicOnePointEquationProvider": [
+        "module",
+        "infinity.one_point"
+      ],
+      "print_plane_cubic_provider_report": [
+        "module",
+        "infinity.one_point"
+      ],
+      "_main": [
+        "module",
+        "cli.cjr_plane_cubic_equation_provider"
+      ]
+    }
+  },
+  "cjr_probe_factory": {
+    "dependencies": [
+      "log_glsm_conventions",
+      "log_glsm_infinity_dp"
+    ],
+    "bindings": {
+      "CompiledLocalizationRelation": [
+        "module",
+        "infinity.probes"
+      ],
+      "ProbeBlockSelection": [
+        "module",
+        "infinity.probes"
+      ],
+      "ExactIncrementalRowBasis": [
+        "module",
+        "infinity.probes"
+      ],
+      "CertifiedIncrementalRowBasis": [
+        "module",
+        "infinity.probes"
+      ],
+      "ProbeFactory": [
+        "module",
+        "infinity.probes"
+      ]
+    }
+  },
+  "cjr_punctured_axioms": {
+    "dependencies": [
+      "cjr_probe_factory"
+    ],
+    "bindings": {
+      "PlaneCubicPuncturedAxioms": [
+        "module",
+        "infinity.punctured"
+      ]
+    }
+  },
+  "cjr_stabilization_boundary": {
+    "dependencies": [
+      "elliptic_probe_values"
+    ],
+    "bindings": {
+      "StabilizationBoundaryComparison": [
+        "module",
+        "infinity.stabilization"
+      ]
+    }
+  },
+  "cjr_infinity_chow": {
+    "dependencies": [
+      "log_glsm_conventions"
+    ],
+    "bindings": {
+      "ChowCoefficientDegree": [
+        "module",
+        "infinity.chow"
+      ],
+      "CJRInfinityChowBackend": [
+        "module",
+        "infinity.chow"
+      ]
+    }
+  },
+  "log_glsm_infinity_vertices": {
+    "dependencies": [
+      "bo_coefficient"
+    ],
+    "bindings": {
+      "argparse": [
+        "import",
+        "argparse",
+        null
+      ],
+      "json": [
+        "import",
+        "json",
+        null
+      ],
+      "os": [
+        "import",
+        "os",
+        null
+      ],
+      "sys": [
+        "import",
+        "sys",
+        null
+      ],
+      "_validate_max_degree": [
+        "module",
+        "infinity.stationary"
+      ],
+      "paper_eisenstein_qexp": [
+        "module",
+        "infinity.stationary"
+      ],
+      "connected_stationary_qseries": [
+        "module",
+        "infinity.stationary"
+      ],
+      "o3_twisted_genus_two_blocks": [
+        "module",
+        "infinity.stationary"
+      ],
+      "infinity_contact_profiles": [
+        "module",
+        "infinity.stationary"
+      ],
+      "reconstruct_genus_two_infinity_vertices": [
+        "module",
+        "infinity.stationary"
+      ],
+      "_series_coefficients": [
+        "module",
+        "infinity.stationary"
+      ],
+      "infinity_vertex_report": [
+        "module",
+        "infinity.stationary"
+      ],
+      "print_infinity_vertex_report": [
+        "module",
+        "infinity.stationary"
+      ],
+      "_main": [
+        "module",
+        "cli.log_glsm_infinity_vertices"
+      ]
+    }
+  },
+  "log_glsm_infinity_dp": {
+    "dependencies": [
+      "log_glsm_conventions",
+      "log_glsm_infinity_vertices"
+    ],
+    "bindings": {
+      "EffectiveVertex": [
+        "module",
+        "infinity.solver"
+      ],
+      "LocalizationEquation": [
+        "module",
+        "infinity.solver"
+      ],
+      "NonTriangularLocalizationError": [
+        "module",
+        "infinity.solver"
+      ],
+      "SingularProbeError": [
+        "module",
+        "infinity.solver"
+      ],
+      "InfinityVertexDP": [
+        "module",
+        "infinity.solver"
+      ],
+      "genus_two_bo_demo": [
+        "module",
+        "infinity.solver"
+      ]
+    }
+  },
+  "log_glsm_infinity_orchestrator": {
+    "dependencies": [
+      "cjr_full_equation_provider",
+      "cjr_punctured_axioms"
+    ],
+    "bindings": {
+      "argparse": [
+        "import",
+        "argparse",
+        null
+      ],
+      "json": [
+        "import",
+        "json",
+        null
+      ],
+      "os": [
+        "import",
+        "os",
+        null
+      ],
+      "sys": [
+        "import",
+        "sys",
+        null
+      ],
+      "time": [
+        "import",
+        "time",
+        null
+      ],
+      "OrchestrationLimitError": [
+        "module",
+        "infinity.config"
+      ],
+      "InconsistentLocalizationRelationError": [
+        "module",
+        "infinity.config"
+      ],
+      "ProbeExpansionStage": [
+        "module",
+        "infinity.config"
+      ],
+      "InfinityOrchestrationConfig": [
+        "module",
+        "infinity.config"
+      ],
+      "InfinityVertexOrchestrator": [
+        "module",
+        "infinity.orchestrator"
+      ],
+      "orchestrate_plane_cubic_vertices": [
+        "module",
+        "infinity.orchestrator"
+      ],
+      "_main": [
+        "module",
+        "cli.log_glsm_infinity_orchestrator"
+      ]
+    }
+  },
+  "genus_three_infinity_vertices": {
+    "dependencies": [
+      "log_glsm_infinity_orchestrator"
+    ],
+    "bindings": {
+      "argparse": [
+        "import",
+        "argparse",
+        null
+      ],
+      "json": [
+        "import",
+        "json",
+        null
+      ],
+      "os": [
+        "import",
+        "os",
+        null
+      ],
+      "sys": [
+        "import",
+        "sys",
+        null
+      ],
+      "time": [
+        "import",
+        "time",
+        null
+      ],
+      "product": [
+        "from",
+        "itertools",
+        "product",
+        null
+      ],
+      "HYPERSURFACE_DEGREE": [
+        "module",
+        "infinity.genus_three"
+      ],
+      "allowed_infinity_degrees": [
+        "module",
+        "infinity.genus_three"
+      ],
+      "infinity_contact_profiles_in_degree": [
+        "module",
+        "infinity.genus_three"
+      ],
+      "enumerate_infinity_vertices": [
+        "module",
+        "infinity.genus_three"
+      ],
+      "probe_ambient_degree": [
+        "module",
+        "infinity.genus_three"
+      ],
+      "GenusThreeVertexComputation": [
+        "module",
+        "infinity.genus_three"
+      ],
+      "enumeration_report": [
+        "module",
+        "infinity.genus_three"
+      ],
+      "print_enumeration_report": [
+        "module",
+        "infinity.genus_three"
+      ],
+      "print_computation_report": [
+        "module",
+        "infinity.genus_three"
+      ],
+      "_main": [
+        "module",
+        "cli.genus_three_infinity_vertices"
+      ]
+    }
+  },
+  "elliptic_probe_values": {
+    "dependencies": [
+      "log_glsm_conventions",
+      "log_glsm_infinity_vertices"
+    ],
+    "bindings": {
+      "EllipticProbeValueBackend": [
+        "module",
+        "curves.elliptic_probes"
+      ],
+      "known_elliptic_invariant": [
+        "module",
+        "curves.elliptic_probes"
+      ]
+    }
+  },
+  "elliptic_cubic_gw": {
+    "dependencies": [],
+    "bindings": {
+      "annotations": [
+        "from",
+        "__future__",
+        "annotations",
+        null
+      ],
+      "argparse": [
+        "import",
+        "argparse",
+        null
+      ],
+      "json": [
+        "import",
+        "json",
+        null
+      ],
+      "math": [
+        "import",
+        "math",
+        null
+      ],
+      "dataclass": [
+        "from",
+        "dataclasses",
+        "dataclass",
+        null
+      ],
+      "Fraction": [
+        "from",
+        "fractions",
+        "Fraction",
+        null
+      ],
+      "Iterable": [
+        "from",
+        "typing",
+        "Iterable",
+        null
+      ],
+      "Sequence": [
+        "from",
+        "typing",
+        "Sequence",
+        null
+      ],
+      "Number": [
+        "module",
+        "curves.series"
+      ],
+      "_as_fraction": [
+        "module",
+        "curves.series"
+      ],
+      "_harmonic": [
+        "module",
+        "curves.series"
+      ],
+      "_divisor_power_sum": [
+        "module",
+        "curves.series"
+      ],
+      "_divisor_sum": [
+        "module",
+        "curves.series"
+      ],
+      "_bernoulli_number": [
+        "module",
+        "curves.series"
+      ],
+      "_Series": [
+        "module",
+        "curves.series"
+      ],
+      "_format_series": [
+        "module",
+        "curves.series"
+      ],
+      "_integer_partitions": [
+        "module",
+        "curves.series"
+      ],
+      "EllipticCurveStationaryTheory": [
+        "module",
+        "curves.stationary"
+      ],
+      "O3TwistedPlane": [
+        "module",
+        "curves.elliptic"
+      ],
+      "EllipticCubicLocalization": [
+        "module",
+        "curves.elliptic"
+      ],
+      "DegreeZeroInfinityTheory": [
+        "module",
+        "curves.genus_two"
+      ],
+      "GenusTwoLogGLSMLocalization": [
+        "module",
+        "curves.genus_two"
+      ],
+      "_fraction_argument": [
+        "module",
+        "cli.elliptic_cubic_gw"
+      ],
+      "_print_invariants": [
+        "module",
+        "cli.elliptic_cubic_gw"
+      ],
+      "_print_genus_two_stationary": [
+        "module",
+        "cli.elliptic_cubic_gw"
+      ],
+      "_print_genus_two_log_glsm": [
+        "module",
+        "cli.elliptic_cubic_gw"
+      ],
+      "_build_parser": [
+        "module",
+        "cli.elliptic_cubic_gw"
+      ],
+      "main": [
+        "module",
+        "cli.elliptic_cubic_gw"
+      ]
+    }
+  },
+  "quartic_k3": {
+    "dependencies": [
+      "hodge_integrals"
+    ],
+    "bindings": {
+      "lru_cache": [
+        "from",
+        "functools",
+        "lru_cache",
+        null
+      ],
+      "QuarticK3Theory": [
+        "module",
+        "targets.quartic"
+      ],
+      "QuarticK3Cycles": [
+        "module",
+        "targets.quartic"
+      ]
+    }
+  },
+  "quartic_k3_fixed_graphs": {
+    "dependencies": [
+      "quartic_k3",
+      "o3_fixed_locus_graphs"
+    ],
+    "bindings": {
+      "P3FixedLocusGraph": [
+        "module",
+        "cycles.quartic"
+      ],
+      "P3FixedLocusGraphEnumerator": [
+        "module",
+        "cycles.quartic"
+      ],
+      "QuarticK3GraphCycles": [
+        "module",
+        "cycles.quartic"
+      ]
+    }
+  },
+  "projective_complete_intersections": {
+    "dependencies": [
+      "quartic_k3_fixed_graphs"
+    ],
+    "bindings": {
+      "ProjectiveCompleteIntersection": [
+        "module",
+        "targets.projective"
+      ],
+      "requested_complete_intersections": [
+        "module",
+        "targets.projective"
+      ],
+      "complete_intersection_weights": [
+        "module",
+        "targets.projective"
+      ],
+      "CompleteIntersectionCycles": [
+        "module",
+        "targets.projective"
+      ],
+      "cy3_line_count_localization": [
+        "module",
+        "targets.projective"
+      ],
+      "cy3_line_count_grassmannian": [
+        "module",
+        "targets.projective"
+      ],
+      "cy3_ordinary_gw_number": [
+        "module",
+        "targets.projective"
+      ]
+    }
+  },
+  "toric_complete_intersections": {
+    "dependencies": [
+      "projective_complete_intersections"
+    ],
+    "bindings": {
+      "_toric_embed": [
+        "module",
+        "targets.toric"
+      ],
+      "hirzebruch_index": [
+        "module",
+        "targets.toric"
+      ],
+      "ToricProductAmbient": [
+        "module",
+        "targets.toric"
+      ],
+      "ToricCompleteIntersection": [
+        "module",
+        "targets.toric"
+      ],
+      "toric_sample": [
+        "module",
+        "targets.toric"
+      ],
+      "toric_degree_tuples": [
+        "module",
+        "targets.toric"
+      ],
+      "_TORIC_GRAPH_CACHE": [
+        "module",
+        "targets.toric"
+      ],
+      "toric_fixed_graphs": [
+        "module",
+        "targets.toric"
+      ],
+      "_toric_edge_factor": [
+        "module",
+        "targets.toric"
+      ],
+      "ToricCompleteIntersectionCycles": [
+        "module",
+        "targets.toric"
+      ],
+      "toric_genus_zero_number": [
+        "module",
+        "targets.toric"
+      ],
+      "toric_primitive_curve_counts": [
+        "module",
+        "targets.toric"
+      ],
+      "toric_known_ordinary_gw": [
+        "module",
+        "targets.toric"
+      ]
+    }
+  },
+  "grassmannian_complete_intersections": {
+    "dependencies": [
+      "toric_complete_intersections"
+    ],
+    "bindings": {
+      "combinations": [
+        "from",
+        "itertools",
+        "combinations",
+        null
+      ],
+      "GrassmannianAmbient": [
+        "module",
+        "targets.grassmannian"
+      ],
+      "GrassmannianCompleteIntersection": [
+        "module",
+        "targets.grassmannian"
+      ],
+      "grassmannian_sample": [
+        "module",
+        "targets.grassmannian"
+      ],
+      "grassmannian_seven_hyperplane_cy3": [
+        "module",
+        "targets.grassmannian"
+      ],
+      "GrassmannianCompleteIntersectionCycles": [
+        "module",
+        "targets.grassmannian"
+      ],
+      "grassmannian_line_count": [
+        "module",
+        "targets.grassmannian"
+      ],
+      "grassmannian_known_ordinary_gw": [
+        "module",
+        "targets.grassmannian"
+      ]
+    }
+  },
+  "convex_gkm_extensions": {
+    "dependencies": [
+      "higher_marked_complete_intersections"
+    ],
+    "bindings": {
+      "PartialFlagAmbient": [
+        "module",
+        "targets.convex_gkm"
+      ],
+      "ConvexGKMCompleteIntersection": [
+        "module",
+        "targets.convex_gkm"
+      ],
+      "convex_gkm_targets": [
+        "module",
+        "targets.convex_gkm"
+      ],
+      "convex_gkm_ordinary_seed": [
+        "module",
+        "targets.convex_gkm"
+      ],
+      "partial_flag_fibre_lines": [
+        "module",
+        "targets.convex_gkm"
+      ],
+      "partial_flag_primitive_counts": [
+        "module",
+        "targets.convex_gkm"
+      ]
+    }
+  },
+  "genus_four_marked": {
+    "dependencies": [
+      "grassmannian_complete_intersections"
+    ],
+    "bindings": {
+      "mumford_monomial": [
+        "module",
+        "core.hodge_grr"
+      ],
+      "GenusFourHodgeIntegrals": [
+        "module",
+        "core.hodge_grr"
+      ],
+      "nonpositive_laurent": [
+        "module",
+        "cycles.marked"
+      ],
+      "GenusFourMixin": [
+        "module",
+        "cycles.marked"
+      ],
+      "GenusFourProjectiveCycles": [
+        "module",
+        "cycles.marked"
+      ],
+      "GenusFourGKMCycles": [
+        "module",
+        "cycles.marked"
+      ],
+      "_MARKED_GKM_GRAPHS": [
+        "module",
+        "cycles.marked"
+      ],
+      "marked_gkm_graphs": [
+        "module",
+        "cycles.marked"
+      ],
+      "ambient_polarization": [
+        "module",
+        "cycles.marked"
+      ],
+      "marked_multiplier": [
+        "module",
+        "cycles.marked"
+      ],
+      "genus_four_targets": [
+        "module",
+        "targets.catalogue"
+      ],
+      "genus_four_backend": [
+        "module",
+        "cycles.marked"
+      ],
+      "genus_four_degrees": [
+        "module",
+        "targets.catalogue"
+      ],
+      "genus_four_kind": [
+        "module",
+        "targets.catalogue"
+      ],
+      "known_genus_four_ordinary": [
+        "module",
+        "targets.catalogue"
+      ]
+    }
+  },
+  "higher_marked_complete_intersections": {
+    "dependencies": [
+      "genus_four_marked"
+    ],
+    "bindings": {
+      "combinations_with_replacement": [
+        "from",
+        "itertools",
+        "combinations_with_replacement",
+        null
+      ],
+      "permutations": [
+        "from",
+        "itertools",
+        "permutations",
+        null
+      ],
+      "higher_marked_profiles": [
+        "module",
+        "cycles.higher_marked"
+      ],
+      "higher_marked_backend": [
+        "module",
+        "cycles.higher_marked"
+      ],
+      "higher_marked_ordinary_seed": [
+        "module",
+        "cycles.higher_marked"
+      ],
+      "marked_profile_permutations": [
+        "module",
+        "cycles.higher_marked"
+      ]
+    }
+  },
+  "o3_unmarked_cycles": {
+    "dependencies": [
+      "o3_fixed_locus_graphs"
+    ],
+    "bindings": {
+      "SimpleNamespace": [
+        "from",
+        "types",
+        "SimpleNamespace",
+        null
+      ],
+      "lru_cache": [
+        "from",
+        "functools",
+        "lru_cache",
+        null
+      ],
+      "O3UnmarkedCycleBackend": [
+        "module",
+        "cycles.plane"
+      ]
+    }
+  }
+}

@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "log-glsm"
+version = "0.1.0"
+description = "Exact logarithmic GLSM localization and stabilized cycle calculations"
+requires-python = ">=3.10"
+
+[project.scripts]
+log-glsm-elliptic = "log_glsm.cli.elliptic_cubic_gw:main"
+log-glsm-infinity = "log_glsm.cli.log_glsm_infinity_orchestrator:_main"
+log-glsm-genus-three = "log_glsm.cli.genus_three_infinity_vertices:_main"
+log-glsm-equations = "log_glsm.cli.cjr_full_equation_provider:_main"
+log-glsm-precompute = "log_glsm.cli.o3_zero_vertex_precompute:_main"
+
+[tool.setuptools.packages.find]
+include = ["log_glsm*", "calculations*", "vendor.admcycles*"]
+namespaces = true
+
+[tool.setuptools.package-data]
+log_glsm = ["_legacy.json", "**/*.sage"]
+"vendor.admcycles" = ["LICENSE"]

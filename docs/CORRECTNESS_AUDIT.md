@@ -13,7 +13,7 @@ The contact-resolved compiler uses the following specializations for
 | Infinity balance | CJR III, Section 9.3 | `sum(abs(c_i)) = 2g-2+n-3D` |
 | Edge factor | CJR III, Section 9.3 | `c^c/(c! (t-3H)^c)` |
 | Nonspecial zero vertex | CJR III, Section 9.3 | `(t-3H)^2/c`, with `c>1` |
-| Marked zero vertex | CJR III, (8.21) and Section 9.3 | `(t-3H)(3H/c-t)^b` for the log-domain psi class |
+| Marked zero vertex | CJR III, (8.21) and Section 9.3 | `(t-3H)((3H-t)/c)^b` for the log-domain psi class |
 | Nodal zero vertex | CJR III, Section 9.3 | `cc'/(c+c') (t-3H)` after the diagonal identification |
 | Stable zero vertex | CJR III, Section 9.3 | `e((R pi_*f^*O(3))^vee)` and the flag factors `1/((t-3H)/c-psi)` |
 | Stable infinity vertex | CJR III, (8.23) | `t/(-t-psi_min)` |
@@ -63,6 +63,11 @@ probe.  No class-level identification is made.
    transferred compact values.  Orchestrator checkpoint version 9 prevents
    a version-8 stage from being mistaken for the enlarged relation family.
 
+5. The November 2026 audit found that (8.21) divides the entire cotangent
+   weight by contact. The previous code divided only the hyperplane term.
+   Primary and stabilized rows are unaffected; old log-descendant rows
+   must be rebuilt.
+
 ## Verification and limits
 
 The regression suite checks ordinary `P^2` invariants, sparse versus standard
@@ -76,15 +81,14 @@ For the degree-zero genus-three target
 fixed loci, 50 collected infinity monomials, and target coefficient
 `-625/72`.  There is one locus with that exact `(-5)` topology but 12 loci
 containing a genus-three infinity vertex.  Thus the relation is not a
-one-unknown equation.  The saved effective-basis calculation remains
-underdetermined.  The new boundary-compared one-point descendant row has 85
-fixed loci, 53 collected monomials, target coefficient `-625/72`, compact
-side `-31/967680`, and no `contact_psi`.  Added to the version-8
-`effective-basis-d2-m2` system, it raises the target component rank from 278
-to 279 but one kernel direction still moves the target.
-rank-deficient in one direction involving this target; reporting it as
-undetermined is the mathematically correct behavior, not a computational
-failure that may be replaced by a guessed value.
+one-unknown equation.  The historical effective-basis calculation was
+underdetermined. The November 2026 audit corrected the marked cotangent
+weight in (8.21) to `(3H-t)/c`. The boundary-compared one-point descendant
+now has target coefficient `-1/72`, compact side `-31/967680`, and no
+`contact_psi`. Previous rank claims that incorporated the old descendant
+row are withdrawn; the corrected large block has not been recomputed.
+Checkpoint version 10 rejects old solver state and filters affected rows
+from legacy imports. See [the derivation and verification](PERFORMANCE_AND_DRAFT_AUDIT.md).
 
 The implementation is finite for any configured truncation, but it is not a
 proof that localization alone determines every effective invariant.  Larger

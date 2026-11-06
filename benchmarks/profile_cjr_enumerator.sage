@@ -6,7 +6,10 @@ import io
 import pstats
 import time
 
-load("cjr_bipartite_graphs.sage")
+
+from log_glsm.infinity.graphs import (
+    PlaneCubicGraphEnumerator,
+)
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--genus", type=int, default=3)

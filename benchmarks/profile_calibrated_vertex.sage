@@ -8,7 +8,17 @@ import argparse
 import json
 import time
 
-load("o3_givental_teleman.sage")
+
+from log_glsm.localization.o3_givental import (
+    O3CalibratedGiventalBackend,
+)
+from log_glsm.localization.plane import (
+    FullTwistedZeroVertexBackend,
+)
+from log_glsm.localization.twisted_plane import (
+    TwistedInsertion,
+    TwistedZeroVertexRequest,
+)
 
 
 def profile_calibrated_vertex(genus=1, degree=1, h_power=1, psi_power=1,

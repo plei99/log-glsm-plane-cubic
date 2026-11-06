@@ -1,0 +1,19 @@
+BEGIN 2 1 ((1, 2),)
+{'genus': 2, 'degree': 1, 'insertions': ((1, 2),), 'existing_backend': '-1/8', 'direct_reconstruction': '-1/8', 'passed': True, 'seconds': 0.16219670299324207}
+BEGIN 3 1 ((1, 4),)
+{'genus': 3, 'degree': 1, 'insertions': ((1, 4),), 'existing_backend': '-143/40320', 'direct_reconstruction': '-143/40320', 'passed': True, 'seconds': 0.1527293249964714}
+BEGIN 3 1 ((2, 3),)
+{'genus': 3, 'degree': 1, 'insertions': ((2, 3),), 'existing_backend': '-1/840', 'direct_reconstruction': '-1/840', 'passed': True, 'seconds': 0.5056641970004421}
+BEGIN 3 1 ((1, 4), (1, 0))
+{'genus': 3, 'degree': 1, 'insertions': ((1, 4), (1, 0)), 'existing_backend': '-37/11520', 'direct_reconstruction': '-37/11520', 'passed': True, 'seconds': 1.4825080370064825}
+BEGIN 4 1 ((1, 6),)
+{'genus': 4, 'degree': 1, 'insertions': ((1, 6),), 'existing_backend': '19/12902400', 'direct_reconstruction': '19/12902400', 'passed': True, 'seconds': 0.5934726909908932}
+BEGIN 2 2 ((1, 2),)
+{'genus': 2, 'degree': 2, 'insertions': ((1, 2),), 'existing_backend': '-8/5', 'direct_reconstruction': '-8/5', 'passed': True, 'seconds': 0.3237153319932986}
+BEGIN 5 1 ((1, 8),)
+{'genus': 5, 'degree': 1, 'insertions': ((1, 8),), 'existing_backend': '0', 'direct_reconstruction': '0', 'passed': True, 'seconds': 8.541869931999827}
+BEGIN 5 2 ((1, 8),)
+{'genus': 5, 'degree': 2, 'insertions': ((1, 8),), 'existing_backend': '186937/3406233600', 'direct_reconstruction': '186937/3406233600', 'passed': True, 'seconds': 9.124045934993774}
+BEGIN 4 1 ((1, 6), (1, 0))
+{'genus': 4, 'degree': 1, 'insertions': ((1, 6), (1, 0)), 'existing_backend': '-1/50400', 'direct_reconstruction': '-1/50400', 'passed': True, 'seconds': 16.509250677016098}
+All independent calibration comparisons passed.
